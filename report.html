@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 
-<title>R Markdown</title>
+<title>Cel analizy</title>
 
 <script type="text/javascript">
 window.onload = function() {
@@ -201,31 +201,207 @@ hr {
 </head>
 
 <body>
-<h2>R Markdown</h2>
+<h2>Cel analizy</h2>
 
-<p>This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <a href="http://rmarkdown.rstudio.com">http://rmarkdown.rstudio.com</a>.</p>
+<p>Celem analizy jest określenie jakie mogą być główne przyczyny stopniowego zmniejszania się długości śledzi oceanicznych wyławianych w Europie.</p>
 
-<p>When you click the <strong>Knit</strong> button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:</p>
+<h2>Zbiór danych</h2>
 
-<pre><code class="r">summary(cars)
+<p>Na przestrzeni ostatnich lat zauważono stopniowy spadek rozmiaru śledzia oceanicznego wyławianego w Europie. Do analizy zebrano pomiary śledzi i warunków w jakich żyją z ostatnich 60 lat. Dane były pobierane z połowów komercyjnych jednostek. W ramach połowu jednej jednostki losowo wybierano od 50 do 100 sztuk trzyletnich śledzi. Zbiór danych zawiera 52582 rekordy, każdy z nich posiada 16 atrybutów:</p>
+
+<ul>
+<li>indeks</li>
+<li>długość złowionego śledzia [cm],</li>
+<li>dostępność planktonu [zagęszczenie Calanus finmarchicus gat. 1],</li>
+<li>dostępność planktonu [zagęszczenie Calanus finmarchicus gat. 2],</li>
+<li>dostępność planktonu [zagęszczenie Calanus helgolandicus gat. 1],</li>
+<li>dostępność planktonu [zagęszczenie Calanus helgolandicus gat. 2],</li>
+<li>dostępność planktonu [zagęszczenie widłonogów gat. 1],</li>
+<li>dostępność planktonu [zagęszczenie widłonogów gat. 2],</li>
+<li>natężenie połowów w regionie [ułamek pozostawionego narybku],</li>
+<li>roczny narybek [liczba śledzi],</li>
+<li>łączne roczne natężenie połowów w regionie [ułamek pozostawionego narybku],</li>
+<li>łączna liczba ryb złowionych w ramach połowu [liczba śledzi],</li>
+<li>temperatura przy powierzchni wody [°C],</li>
+<li>poziom zasolenia wody [Knudsen ppt],</li>
+<li>miesiąc połowu [numer miesiąca],</li>
+<li>oscylacja północnoatlantycka [mb]</li>
+</ul>
+
+<p>Brakujące dane zostały oznaczone jako <code>?</code> w oryginalnym zbiorze danych.</p>
+
+<h2>Wykorzystane biblioteki</h2>
+
+<pre><code class="r">library(ggplot2)
+library(dplyr)
 </code></pre>
 
-<pre><code>##      speed           dist       
-##  Min.   : 4.0   Min.   :  2.00  
-##  1st Qu.:12.0   1st Qu.: 26.00  
-##  Median :15.0   Median : 36.00  
-##  Mean   :15.4   Mean   : 42.98  
-##  3rd Qu.:19.0   3rd Qu.: 56.00  
-##  Max.   :25.0   Max.   :120.00
+<h2>Ładowanie danych</h2>
+
+<p>Dane zostały załadowane z podaniem typów kolumn oraz wskazaniem, że brakujące dane są oznaczone przez <code>?</code>.</p>
+
+<pre><code class="r">loadData &lt;- function(filename)
+{
+  read.csv(file = filename,
+           header = TRUE,
+           sep = &#39;,&#39;,
+           comment.char = &quot;&quot;,
+           na.strings = &quot;?&quot;,
+           colClasses = c(&quot;integer&quot;, &quot;numeric&quot;, &quot;numeric&quot;, &quot;numeric&quot;, 
+                          &quot;numeric&quot;, &quot;numeric&quot;, &quot;numeric&quot;, 
+                          &quot;numeric&quot;, &quot;numeric&quot;, &quot;integer&quot;, 
+                          &quot;numeric&quot;, &quot;numeric&quot;, &quot;numeric&quot;, 
+                          &quot;numeric&quot;, &quot;integer&quot;, &quot;numeric&quot;))
+}
+herringsFilename &lt;- &#39;files/herrings.csv&#39;
+rawData &lt;- loadData(herringsFilename)
 </code></pre>
 
-<h2>Including Plots</h2>
+<h2>Wstępne przetwarzanie danych</h2>
 
-<p>You can also embed plots, for example:</p>
+<p>Wstępne przetwarzanie danych obejmowało usunięcie pierwszego atrybutu <code>indeks</code> oraz zastąpienie danych brakujących przez średnią. 
+Dla czytelności, oryginalne nazwy zostały zastąpione ich polskimi opisami.
+Wstępne przetwarzanie danych zostało wykonane za pomocą kodu:</p>
 
-<p><img src="data:image/png;base64,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" alt="plot of chunk pressure"/></p>
+<pre><code class="r">transformData &lt;- function(rawData)
+{
+  columnsToPreserve &lt;- c(&quot;length&quot;, &quot;cfin1&quot;,  &quot;cfin2&quot;,  &quot;chel1&quot;,  &quot;chel2&quot;,
+                         &quot;lcop1&quot;,  &quot;lcop2&quot;,  &quot;fbar&quot;,   &quot;recr&quot;,   &quot;cumf&quot;,
+                         &quot;totaln&quot;, &quot;sst&quot;, &quot;sal&quot;, &quot;xmonth&quot;, &quot;nao&quot;)
+  data &lt;- rawData[columnsToPreserve]
 
-<p>Note that the <code>echo = FALSE</code> parameter was added to the code chunk to prevent printing of the R code that generated the plot.</p>
+  polishColumnsNames &lt;- c(&quot;długość śledzia [cm]&quot;,
+    &quot;dostępność planktonu [Calanus finmarchicus gat. 1]&quot;,
+    &quot;dostępność planktonu [Calanus finmarchicus gat. 2]&quot;,
+    &quot;dostępność planktonu [Calanus helgolandicus gat. 1]&quot;,
+    &quot;dostępność planktonu [Calanus helgolandicus gat. 2]&quot;,
+    &quot;dostępność planktonu [widłonogi gat. 1]&quot;,
+    &quot;dostępność planktonu [widłonogi gat. 2]&quot;,
+    &quot;natężenie połowów w regionie [ułamek pozostawionego narybku]&quot;,
+    &quot;roczny narybek [liczba śledzi]&quot;,
+    &quot;łączne roczne natężenie połowów w regionie [ułamek pozostawionego narybku]&quot;,
+    &quot;łączna liczba ryb złowionych w ramach połowu [liczba śledzi]&quot;,
+    &quot;temperatura przy powierzchni wody [°C]&quot;,
+    &quot;poziom zasolenia wody [Knudsen ppt]&quot;,
+    &quot;miesiąc połowu [numer miesiąca]&quot;,
+    &quot;oscylacja północnoatlantycka [mb]&quot;)
+
+  names(data) &lt;- polishColumnsNames
+
+  for(col in names(data))
+  {
+    if(!any(is.na(data[[col]])))
+    {
+      # skip columns without NA
+      next
+    }
+    data[is.na(data[[col]]), col] &lt;- mean(data[[col]], na.rm = TRUE)
+  }
+
+  data
+}
+herringsData &lt;- transformData(rawData)
+</code></pre>
+
+<h2>Podsumowanie zbioru danych</h2>
+
+<p>W celu podsumowania zbioru danych możemy posłużyć się następującą funkcją:</p>
+
+<pre><code class="r">summary(herringsData)
+</code></pre>
+
+<pre><code>##  długość śledzia [cm] dostępność planktonu [Calanus finmarchicus gat. 1]
+##  Min.   :19.0         Min.   : 0.0000                                   
+##  1st Qu.:24.0         1st Qu.: 0.0000                                   
+##  Median :25.5         Median : 0.1333                                   
+##  Mean   :25.3         Mean   : 0.4458                                   
+##  3rd Qu.:26.5         3rd Qu.: 0.3603                                   
+##  Max.   :32.5         Max.   :37.6667                                   
+##  dostępność planktonu [Calanus finmarchicus gat. 2]
+##  Min.   : 0.0000                                   
+##  1st Qu.: 0.2778                                   
+##  Median : 0.7012                                   
+##  Mean   : 2.0248                                   
+##  3rd Qu.: 1.9973                                   
+##  Max.   :19.3958                                   
+##  dostępność planktonu [Calanus helgolandicus gat. 1]
+##  Min.   : 0.000                                     
+##  1st Qu.: 2.469                                     
+##  Median : 6.083                                     
+##  Mean   :10.006                                     
+##  3rd Qu.:11.500                                     
+##  Max.   :75.000                                     
+##  dostępność planktonu [Calanus helgolandicus gat. 2]
+##  Min.   : 5.238                                     
+##  1st Qu.:13.589                                     
+##  Median :21.435                                     
+##  Mean   :21.221                                     
+##  3rd Qu.:27.193                                     
+##  Max.   :57.706                                     
+##  dostępność planktonu [widłonogi gat. 1]
+##  Min.   :  0.3074                       
+##  1st Qu.:  2.5479                       
+##  Median :  7.1229                       
+##  Mean   : 12.8108                       
+##  3rd Qu.: 21.2315                       
+##  Max.   :115.5833                       
+##  dostępność planktonu [widłonogi gat. 2]
+##  Min.   : 7.849                         
+##  1st Qu.:17.808                         
+##  Median :25.338                         
+##  Mean   :28.419                         
+##  3rd Qu.:37.232                         
+##  Max.   :68.736                         
+##  natężenie połowów w regionie [ułamek pozostawionego narybku]
+##  Min.   :0.0680                                              
+##  1st Qu.:0.2270                                              
+##  Median :0.3320                                              
+##  Mean   :0.3304                                              
+##  3rd Qu.:0.4560                                              
+##  Max.   :0.8490                                              
+##  roczny narybek [liczba śledzi]
+##  Min.   : 140515               
+##  1st Qu.: 360061               
+##  Median : 421391               
+##  Mean   : 520367               
+##  3rd Qu.: 724151               
+##  Max.   :1565890               
+##  łączne roczne natężenie połowów w regionie [ułamek pozostawionego narybku]
+##  Min.   :0.06833                                                           
+##  1st Qu.:0.14809                                                           
+##  Median :0.23191                                                           
+##  Mean   :0.22981                                                           
+##  3rd Qu.:0.29803                                                           
+##  Max.   :0.39801                                                           
+##  łączna liczba ryb złowionych w ramach połowu [liczba śledzi]
+##  Min.   : 144137                                             
+##  1st Qu.: 306068                                             
+##  Median : 539558                                             
+##  Mean   : 514973                                             
+##  3rd Qu.: 730351                                             
+##  Max.   :1015595                                             
+##  temperatura przy powierzchni wody [°C]
+##  Min.   :12.77                         
+##  1st Qu.:13.63                         
+##  Median :13.86                         
+##  Mean   :13.87                         
+##  3rd Qu.:14.16                         
+##  Max.   :14.73                         
+##  poziom zasolenia wody [Knudsen ppt] miesiąc połowu [numer miesiąca]
+##  Min.   :35.40                       Min.   : 1.000                 
+##  1st Qu.:35.51                       1st Qu.: 5.000                 
+##  Median :35.51                       Median : 8.000                 
+##  Mean   :35.51                       Mean   : 7.258                 
+##  3rd Qu.:35.52                       3rd Qu.: 9.000                 
+##  Max.   :35.61                       Max.   :12.000                 
+##  oscylacja północnoatlantycka [mb]
+##  Min.   :-4.89000                 
+##  1st Qu.:-1.89000                 
+##  Median : 0.20000                 
+##  Mean   :-0.09236                 
+##  3rd Qu.: 1.63000                 
+##  Max.   : 5.08000
+</code></pre>
 
 </body>
 

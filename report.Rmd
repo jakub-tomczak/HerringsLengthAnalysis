@@ -1,5 +1,5 @@
 ---
-title: "HerringsLengthAnalysis"
+title: "Raport z analizy długości śledzia"
 author: "Jakub Tomczak"
 date: "1 grudnia 2019"
 output: html_document
@@ -9,22 +9,111 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## Cel analizy
+Celem analizy jest określenie jakie mogą być główne przyczyny stopniowego zmniejszania się długości śledzi oceanicznych wyławianych w Europie.
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+## Zbiór danych
+Na przestrzeni ostatnich lat zauważono stopniowy spadek rozmiaru śledzia oceanicznego wyławianego w Europie. Do analizy zebrano pomiary śledzi i warunków w jakich żyją z ostatnich 60 lat. Dane były pobierane z połowów komercyjnych jednostek. W ramach połowu jednej jednostki losowo wybierano od 50 do 100 sztuk trzyletnich śledzi. Zbiór danych zawiera 52582 rekordy, każdy z nich posiada 16 atrybutów:
+* indeks
+* długość złowionego śledzia [cm],
+* dostępność planktonu [zagęszczenie Calanus finmarchicus gat. 1],
+* dostępność planktonu [zagęszczenie Calanus finmarchicus gat. 2],
+* dostępność planktonu [zagęszczenie Calanus helgolandicus gat. 1],
+* dostępność planktonu [zagęszczenie Calanus helgolandicus gat. 2],
+* dostępność planktonu [zagęszczenie widłonogów gat. 1],
+* dostępność planktonu [zagęszczenie widłonogów gat. 2],
+* natężenie połowów w regionie [ułamek pozostawionego narybku],
+* roczny narybek [liczba śledzi],
+* łączne roczne natężenie połowów w regionie [ułamek pozostawionego narybku],
+* łączna liczba ryb złowionych w ramach połowu [liczba śledzi],
+* temperatura przy powierzchni wody [°C],
+* poziom zasolenia wody [Knudsen ppt],
+* miesiąc połowu [numer miesiąca],
+* oscylacja północnoatlantycka [mb]
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+Brakujące dane zostały oznaczone jako `?` w oryginalnym zbiorze danych.
+```{r load, cache=FALSE, echo=FALSE}
+source("src/functions.R")
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+## Wykorzystane biblioteki
+```{r, echo = TRUE, results='hide'}
+library(ggplot2)
+library(dplyr)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+## Ładowanie danych
+
+Dane zostały załadowane z podaniem typów kolumn oraz wskazaniem, że brakujące dane są oznaczone przez `?`.
+```{r loadData}
+loadData <- function(filename)
+{
+  read.csv(file = filename,
+           header = TRUE,
+           sep = ',',
+           comment.char = "",
+           na.strings = "?",
+           colClasses = c("integer", "numeric", "numeric", "numeric", 
+                          "numeric", "numeric", "numeric", 
+                          "numeric", "numeric", "integer", 
+                          "numeric", "numeric", "numeric", 
+                          "numeric", "integer", "numeric"))
+}
+herringsFilename <- 'files/herrings.csv'
+rawData <- loadData(herringsFilename)
+```
+
+## Wstępne przetwarzanie danych
+
+Wstępne przetwarzanie danych obejmowało usunięcie pierwszego atrybutu `indeks` oraz zastąpienie danych brakujących przez średnią. 
+Dla czytelności, oryginalne nazwy zostały zastąpione ich polskimi opisami.
+Wstępne przetwarzanie danych zostało wykonane za pomocą kodu:
+
+```{r dataTransformation}
+transformData <- function(rawData)
+{
+  columnsToPreserve <- c("length", "cfin1",  "cfin2",  "chel1",  "chel2",
+                         "lcop1",  "lcop2",  "fbar",   "recr",   "cumf",
+                         "totaln", "sst", "sal", "xmonth", "nao")
+  data <- rawData[columnsToPreserve]
+  
+  polishColumnsNames <- c("długość śledzia [cm]",
+    "dostępność planktonu [Calanus finmarchicus gat. 1]",
+    "dostępność planktonu [Calanus finmarchicus gat. 2]",
+    "dostępność planktonu [Calanus helgolandicus gat. 1]",
+    "dostępność planktonu [Calanus helgolandicus gat. 2]",
+    "dostępność planktonu [widłonogi gat. 1]",
+    "dostępność planktonu [widłonogi gat. 2]",
+    "natężenie połowów w regionie [ułamek pozostawionego narybku]",
+    "roczny narybek [liczba śledzi]",
+    "łączne roczne natężenie połowów w regionie [ułamek pozostawionego narybku]",
+    "łączna liczba ryb złowionych w ramach połowu [liczba śledzi]",
+    "temperatura przy powierzchni wody [°C]",
+    "poziom zasolenia wody [Knudsen ppt]",
+    "miesiąc połowu [numer miesiąca]",
+    "oscylacja północnoatlantycka [mb]")
+  
+  names(data) <- polishColumnsNames
+  
+  for(col in names(data))
+  {
+    if(!any(is.na(data[[col]])))
+    {
+      # skip columns without NA
+      next
+    }
+    data[is.na(data[[col]]), col] <- mean(data[[col]], na.rm = TRUE)
+  }
+  
+  data
+}
+herringsData <- transformData(rawData)
+```
+
+## Podsumowanie zbioru danych
+
+W celu podsumowania zbioru danych możemy posłużyć się następującą funkcją:
+```{r summary}
+summary(herringsData)
+```

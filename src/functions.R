@@ -1,5 +1,5 @@
 library(ggplot2)
-library(raster)
+
 loadData <- function(filename)
 {
   read.csv(file = filename,
@@ -21,17 +21,31 @@ transformData <- function(rawData)
                          "totaln", "sst", "sal", "xmonth", "nao")
   data <- rawData[columnsToPreserve]
   
+  polishColumnsNames <- c("długość śledzia [cm]",
+                          "dostępność planktonu [Calanus finmarchicus gat. 1]",
+                          "dostępność planktonu [Calanus finmarchicus gat. 2]",
+                          "dostępność planktonu [Calanus helgolandicus gat. 1]",
+                          "dostępność planktonu [Calanus helgolandicus gat. 2]",
+                          "dostępność planktonu [widłonogi gat. 1]",
+                          "dostępność planktonu [widłonogi gat. 2]",
+                          "natężenie połowów w regionie [ułamek pozostawionego narybku]",
+                          "roczny narybek [liczba śledzi]",
+                          "łączne roczne natężenie połowów w regionie [ułamek pozostawionego narybku]",
+                          "łączna liczba ryb złowionych w ramach połowu [liczba śledzi]",
+                          "temperatura przy powierzchni wody [°C]",
+                          "poziom zasolenia wody [Knudsen ppt]",
+                          "miesiąc połowu [numer miesiąca]",
+                          "oscylacja północnoatlantycka [mb]")
+  
+  names(data) <- polishColumnsNames
+  
   for(col in names(data))
   {
     if(!any(is.na(data[[col]])))
     {
       # skip columns without NA
-      # print(paste("Skipping column", col))
       next
     }
-    
-    print(paste("Substituting NA in column", col))
-    
     data[is.na(data[[col]]), col] <- mean(data[[col]], na.rm = TRUE)
   }
   
@@ -52,9 +66,7 @@ dataSummary <- function(data)
   for(col in names(data))
   {
     ggplot(data, aes(sym(col))) +
-      geom_histogram()
+      geom_histogram() +
+      labs(x = "oś x", y="oś y")
   }
-  #ggplot(data, aes(cfin1)) +
-  #  geom_histogram(bins = 10) +
-  #  labs(x = "oś x", y="oś y")
 }
