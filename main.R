@@ -1,10 +1,11 @@
-library(dplyr)
-
-source('src/functions.R')
+source("src/functions.R")
 
 herringsFilename <- 'files/herrings.csv'
 rawData <- loadData(herringsFilename)
 
-rawData <- rawData[500:530, ]
+smallData <- rawData[500:530, ]
 
 herringsData <- transformData(rawData)
+
+dataSummary(herringsData)
+
