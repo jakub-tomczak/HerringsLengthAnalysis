@@ -9,8 +9,8 @@ loadData <- function(filename)
            na.strings = "?",
            colClasses = c("integer", "numeric", "numeric", "numeric", 
                           "numeric", "numeric", "numeric", 
-                          "numeric", "numeric", "integer", 
-                          "numeric", "numeric", "numeric", 
+                          "numeric", "numeric", "factor", 
+                          "factor", "numeric", "numeric", 
                           "numeric", "integer", "numeric"))
 }
 
@@ -37,7 +37,7 @@ transformData <- function(rawData)
                           "miesiąc połowu [numer miesiąca]",
                           "oscylacja północnoatlantycka [mb]")
   
-  names(data) <- polishColumnsNames
+  # names(data) <- polishColumnsNames
   
   for(col in names(data))
   {
@@ -49,8 +49,37 @@ transformData <- function(rawData)
     data[is.na(data[[col]]), col] <- mean(data[[col]], na.rm = TRUE)
   }
   
+  # add column with year (based on years' estimation)
+  numberOfYears <- 60
+  numberOfHerringsInOneYear <- nrow(data) %/% (numberOfYears-1)
+  data <- data %>%
+    mutate(year = 1:n() %/% numberOfHerringsInOneYear + 1)
+  
+  # add column with year (based on recr)
+  years_distinct <- getYearsDistinct(data)
+  data <- mutate(data, year_=assignYear(recr, years_distinct))
+  
   data
 }
+
+getYearsDistinct <- function(data)
+{
+  data %>% distinct(x=recr) %>% mutate(year=seq(1, length(x), 1))
+}
+
+assignYear <- function(recr, years)
+{
+  sapply(recr, function(x){
+    val <- years[years["x"] == levels(x)[x], "year"]
+    if(length(val) < 1)
+      0
+    else
+    {
+      val
+    }  
+  })
+}
+
 
 drawHistogram <- function(data, name)
 {
@@ -63,10 +92,49 @@ dataSummary <- function(data)
   print("Dimensions of dataset:")
   print(dim(data))
   
-  for(col in names(data))
-  {
-    ggplot(data, aes(sym(col))) +
-      geom_histogram() +
-      labs(x = "oś x", y="oś y")
-  }
+  summary(data)
+  
+  ggplot(data, aes(x=length, color = factor(xmonth))) +
+    geom_density() +
+    scale_x_continuous(breaks = seq(min(data$length), max(data$length), 1)) +
+    labs(title="Rozkład długości śledzia w zależności od miesiąca",
+         x="Długość śledzia",
+         y="Gęstość rozkładu",
+         colour = "Miesiąc")
+}
+
+variablesAnalysis.lengthByYear_ <- function(data)
+{
+  meanByYear <- data %>% group_by(year_) %>% summarise_at(vars(length), list(mean, sd))
+  ggplot(meanByYear, aes(x=year_, y=fn1)) +
+    geom_line(linetype = "dashed") +
+    geom_pointrange(aes(min=fn1-fn2, max=fn1+fn2), color="darkseagreen3") +
+    geom_point()  +
+    labs(title="Rozkład długości śledzia w zależności od roku",
+         subtitle = "Agregacja na podstawie atrybutu `recr`",
+         x="Rok",
+         y="Długość śledzia [cm]")
+}
+
+variablesAnalysis.lengthByYear <- function(data)
+{
+  meanByYear <- data %>% group_by(year) %>% summarise_at(vars(length), list(mean, sd))
+  ggplot(meanByYear, aes(x=year, y=fn1)) +
+    geom_line(linetype = "dashed") +
+    geom_pointrange(aes(min=fn1-fn2, max=fn1+fn2), color="darkseagreen3") +
+    geom_point()  +
+    labs(title="Rozkład długości śledzia w zależności od roku",
+         subtitle = "Agregacja na podstawie założenia o chronologii danych.",
+         x="Rok",
+         y="Długość śledzia [cm]")
+}
+
+variablesAnalysis.lengthAll <- function(data)
+{
+  ggplot(data, aes(x=seq(1, nrow(data)), y=length)) +
+    geom_line(color="darkseagreen3")  +
+    labs(title="Długość śledzia",
+         subtitle="Bez agregacji, wszystkie dane.",
+         x="Nr śledzia",
+         y="Długość śledzia [cm]")
 }

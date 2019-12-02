@@ -1,35 +1,37 @@
 ---
-title: "Raport z analizy dÅ‚ugoÅ›ci Å›ledzia"
+title: "Raport z analizy d³ugoœci œledzia"
 author: "Jakub Tomczak"
 date: "1 grudnia 2019"
-output: html_document
+output:
+    html_notebook
 ---
 
 
+# Raport z analizy d³ugoœci œledzia oceanicznego
 
 ## Cel analizy
-Celem analizy jest okreÅ›lenie jakie mogÄ… byÄ‡ gÅ‚Ã³wne przyczyny stopniowego zmniejszania siÄ™ dÅ‚ugoÅ›ci Å›ledzi oceanicznych wyÅ‚awianych w Europie.
+Celem analizy jest okreœlenie jakie mog¹ byæ g³ówne przyczyny stopniowego zmniejszania siê d³ugoœci œledzi oceanicznych wy³awianych w Europie.
 
-## ZbiÃ³r danych
-Na przestrzeni ostatnich lat zauwaÅ¼ono stopniowy spadek rozmiaru Å›ledzia oceanicznego wyÅ‚awianego w Europie. Do analizy zebrano pomiary Å›ledzi i warunkÃ³w w jakich Å¼yjÄ… z ostatnich 60 lat. Dane byÅ‚y pobierane z poÅ‚owÃ³w komercyjnych jednostek. W ramach poÅ‚owu jednej jednostki losowo wybierano od 50 do 100 sztuk trzyletnich Å›ledzi. ZbiÃ³r danych zawiera 52582 rekordy, kaÅ¼dy z nich posiada 16 atrybutÃ³w:
+## Zbiór danych
+Na przestrzeni ostatnich lat zauwa¿ono stopniowy spadek rozmiaru œledzia oceanicznego wy³awianego w Europie. Do analizy zebrano pomiary œledzi i warunków w jakich ¿yj¹ z ostatnich 60 lat. Dane by³y pobierane z po³owów komercyjnych jednostek. W ramach po³owu jednej jednostki losowo wybierano od 50 do 100 sztuk trzyletnich œledzi. Zbiór danych zawiera 52582 rekordy, ka¿dy z nich posiada 16 atrybutów:
 * indeks
-* dÅ‚ugoÅ›Ä‡ zÅ‚owionego Å›ledzia [cm],
-* dostÄ™pnoÅ›Ä‡ planktonu [zagÄ™szczenie Calanus finmarchicus gat. 1],
-* dostÄ™pnoÅ›Ä‡ planktonu [zagÄ™szczenie Calanus finmarchicus gat. 2],
-* dostÄ™pnoÅ›Ä‡ planktonu [zagÄ™szczenie Calanus helgolandicus gat. 1],
-* dostÄ™pnoÅ›Ä‡ planktonu [zagÄ™szczenie Calanus helgolandicus gat. 2],
-* dostÄ™pnoÅ›Ä‡ planktonu [zagÄ™szczenie widÅ‚onogÃ³w gat. 1],
-* dostÄ™pnoÅ›Ä‡ planktonu [zagÄ™szczenie widÅ‚onogÃ³w gat. 2],
-* natÄ™Å¼enie poÅ‚owÃ³w w regionie [uÅ‚amek pozostawionego narybku],
-* roczny narybek [liczba Å›ledzi],
-* Å‚Ä…czne roczne natÄ™Å¼enie poÅ‚owÃ³w w regionie [uÅ‚amek pozostawionego narybku],
-* Å‚Ä…czna liczba ryb zÅ‚owionych w ramach poÅ‚owu [liczba Å›ledzi],
-* temperatura przy powierzchni wody [Â°C],
+* d³ugoœæ z³owionego œledzia [cm],
+* dostêpnoœæ planktonu [zagêszczenie Calanus finmarchicus gat. 1],
+* dostêpnoœæ planktonu [zagêszczenie Calanus finmarchicus gat. 2],
+* dostêpnoœæ planktonu [zagêszczenie Calanus helgolandicus gat. 1],
+* dostêpnoœæ planktonu [zagêszczenie Calanus helgolandicus gat. 2],
+* dostêpnoœæ planktonu [zagêszczenie wid³onogów gat. 1],
+* dostêpnoœæ planktonu [zagêszczenie wid³onogów gat. 2],
+* natê¿enie po³owów w regionie [u³amek pozostawionego narybku],
+* roczny narybek [liczba œledzi],
+* ³¹czne roczne natê¿enie po³owów w regionie [u³amek pozostawionego narybku],
+* ³¹czna liczba ryb z³owionych w ramach po³owu [liczba œledzi],
+* temperatura przy powierzchni wody [°C],
 * poziom zasolenia wody [Knudsen ppt],
-* miesiÄ…c poÅ‚owu [numer miesiÄ…ca],
-* oscylacja pÃ³Å‚nocnoatlantycka [mb]
+* miesi¹c po³owu [numer miesi¹ca],
+* oscylacja pó³nocnoatlantycka [mb]
 
-BrakujÄ…ce dane zostaÅ‚y oznaczone jako `?` w oryginalnym zbiorze danych.
+Brakuj¹ce dane zosta³y oznaczone jako `?` w oryginalnym zbiorze danych.
 
 
 ## Wykorzystane biblioteki
@@ -40,9 +42,9 @@ library(dplyr)
 ```
 
 
-## Åadowanie danych
+## £adowanie danych
 
-Dane zostaÅ‚y zaÅ‚adowane z podaniem typÃ³w kolumn oraz wskazaniem, Å¼e brakujÄ…ce dane sÄ… oznaczone przez `?`.
+Dane zosta³y za³adowane z podaniem typów kolumn oraz wskazaniem, ¿e brakuj¹ce dane s¹ oznaczone przez `?`.
 
 ```r
 loadData <- function(filename)
@@ -56,158 +58,50 @@ loadData <- function(filename)
                           "numeric", "numeric", "numeric", 
                           "numeric", "numeric", "integer", 
                           "numeric", "numeric", "numeric", 
-                          "numeric", "integer", "numeric"))
+                          "numeric", "factor", "numeric"))
 }
 herringsFilename <- 'files/herrings.csv'
 rawData <- loadData(herringsFilename)
 ```
 
-## WstÄ™pne przetwarzanie danych
+## Wstêpne przetwarzanie danych
 
-WstÄ™pne przetwarzanie danych obejmowaÅ‚o usuniÄ™cie pierwszego atrybutu `indeks` oraz zastÄ…pienie danych brakujÄ…cych przez Å›redniÄ…. 
-Dla czytelnoÅ›ci, oryginalne nazwy zostaÅ‚y zastÄ…pione ich polskimi opisami.
-WstÄ™pne przetwarzanie danych zostaÅ‚o wykonane za pomocÄ… kodu:
+Wstêpne przetwarzanie danych obejmowa³o usuniêcie pierwszego atrybutu `indeks` oraz zast¹pienie danych brakuj¹cych przez œredni¹. 
+Dla czytelnoœci, oryginalne nazwy zosta³y zast¹pione ich polskimi opisami.
+
+Oprócz tych przekszta³ceñ zosta³a dodana jeszcze jedna kolumna w której zosta³y zapisany rok, z któego pochodzi dany rekord. Aby wyznaczyæ rok wykorzystano kolumnê `recr`, która wskazuje roczny narybek. W ten sposób wytypowano 52 unikatowe rekordy (licz¹c unikatowe rekordy dla kolumny `cumf` równie¿ wysz³y 52 wartoœci) za pomoc¹ funkcji:
 
 
 ```r
-transformData <- function(rawData)
+getYearsDistinct <- function(data)
 {
-  columnsToPreserve <- c("length", "cfin1",  "cfin2",  "chel1",  "chel2",
-                         "lcop1",  "lcop2",  "fbar",   "recr",   "cumf",
-                         "totaln", "sst", "sal", "xmonth", "nao")
-  data <- rawData[columnsToPreserve]
-  
-  polishColumnsNames <- c("dÅ‚ugoÅ›Ä‡ Å›ledzia [cm]",
-    "dostÄ™pnoÅ›Ä‡ planktonu [Calanus finmarchicus gat. 1]",
-    "dostÄ™pnoÅ›Ä‡ planktonu [Calanus finmarchicus gat. 2]",
-    "dostÄ™pnoÅ›Ä‡ planktonu [Calanus helgolandicus gat. 1]",
-    "dostÄ™pnoÅ›Ä‡ planktonu [Calanus helgolandicus gat. 2]",
-    "dostÄ™pnoÅ›Ä‡ planktonu [widÅ‚onogi gat. 1]",
-    "dostÄ™pnoÅ›Ä‡ planktonu [widÅ‚onogi gat. 2]",
-    "natÄ™Å¼enie poÅ‚owÃ³w w regionie [uÅ‚amek pozostawionego narybku]",
-    "roczny narybek [liczba Å›ledzi]",
-    "Å‚Ä…czne roczne natÄ™Å¼enie poÅ‚owÃ³w w regionie [uÅ‚amek pozostawionego narybku]",
-    "Å‚Ä…czna liczba ryb zÅ‚owionych w ramach poÅ‚owu [liczba Å›ledzi]",
-    "temperatura przy powierzchni wody [Â°C]",
-    "poziom zasolenia wody [Knudsen ppt]",
-    "miesiÄ…c poÅ‚owu [numer miesiÄ…ca]",
-    "oscylacja pÃ³Å‚nocnoatlantycka [mb]")
-  
-  names(data) <- polishColumnsNames
-  
-  for(col in names(data))
-  {
-    if(!any(is.na(data[[col]])))
-    {
-      # skip columns without NA
-      next
-    }
-    data[is.na(data[[col]]), col] <- mean(data[[col]], na.rm = TRUE)
-  }
-  
-  data
+  data %>% distinct(x=recr) %>% mutate(year=seq(1, length(x), 1))
 }
-herringsData <- transformData(rawData)
+
+assignYear <- function(recr, years)
+{
+  sapply(recr, function(x){
+    val <- years[years["x"] == levels(x)[x], "year"]
+    if(length(val) < 1)
+      0
+    else
+    {
+      val
+    }  
+  })
+}
 ```
 
-## Podsumowanie zbioru danych
+W ten sposób dodajemy kolumnê o nazwie `year_`. Ze wzglêdu na fakt, i¿ dane mia³y byæ zapisane chronologicznie (co jest ma³o prawdopodobne patrz¹c na dane z kolumn `recr` oraz `cumf`) do ka¿dego rekordu jest dodawany rok na podstawie wartoœci z pola `recr`. Tak wyliczony rok jest dodany jako atrybut `year`.
 
-W celu podsumowania zbioru danych moÅ¼emy posÅ‚uÅ¼yÄ‡ siÄ™ nastÄ™pujÄ…cÄ… funkcjÄ…:
+Ostatecznie, wstêpne przetwarzanie danych zosta³o wykonane za pomoc¹ kodu:
 
-```r
-summary(herringsData)
-```
 
-```
-##  dÅ‚ugoÅ›Ä‡ Å›ledzia [cm] dostÄ™pnoÅ›Ä‡ planktonu [Calanus finmarchicus gat. 1]
-##  Min.   :19.0         Min.   : 0.0000                                   
-##  1st Qu.:24.0         1st Qu.: 0.0000                                   
-##  Median :25.5         Median : 0.1333                                   
-##  Mean   :25.3         Mean   : 0.4458                                   
-##  3rd Qu.:26.5         3rd Qu.: 0.3603                                   
-##  Max.   :32.5         Max.   :37.6667                                   
-##  dostÄ™pnoÅ›Ä‡ planktonu [Calanus finmarchicus gat. 2]
-##  Min.   : 0.0000                                   
-##  1st Qu.: 0.2778                                   
-##  Median : 0.7012                                   
-##  Mean   : 2.0248                                   
-##  3rd Qu.: 1.9973                                   
-##  Max.   :19.3958                                   
-##  dostÄ™pnoÅ›Ä‡ planktonu [Calanus helgolandicus gat. 1]
-##  Min.   : 0.000                                     
-##  1st Qu.: 2.469                                     
-##  Median : 6.083                                     
-##  Mean   :10.006                                     
-##  3rd Qu.:11.500                                     
-##  Max.   :75.000                                     
-##  dostÄ™pnoÅ›Ä‡ planktonu [Calanus helgolandicus gat. 2]
-##  Min.   : 5.238                                     
-##  1st Qu.:13.589                                     
-##  Median :21.435                                     
-##  Mean   :21.221                                     
-##  3rd Qu.:27.193                                     
-##  Max.   :57.706                                     
-##  dostÄ™pnoÅ›Ä‡ planktonu [widÅ‚onogi gat. 1]
-##  Min.   :  0.3074                       
-##  1st Qu.:  2.5479                       
-##  Median :  7.1229                       
-##  Mean   : 12.8108                       
-##  3rd Qu.: 21.2315                       
-##  Max.   :115.5833                       
-##  dostÄ™pnoÅ›Ä‡ planktonu [widÅ‚onogi gat. 2]
-##  Min.   : 7.849                         
-##  1st Qu.:17.808                         
-##  Median :25.338                         
-##  Mean   :28.419                         
-##  3rd Qu.:37.232                         
-##  Max.   :68.736                         
-##  natÄ™Å¼enie poÅ‚owÃ³w w regionie [uÅ‚amek pozostawionego narybku]
-##  Min.   :0.0680                                              
-##  1st Qu.:0.2270                                              
-##  Median :0.3320                                              
-##  Mean   :0.3304                                              
-##  3rd Qu.:0.4560                                              
-##  Max.   :0.8490                                              
-##  roczny narybek [liczba Å›ledzi]
-##  Min.   : 140515               
-##  1st Qu.: 360061               
-##  Median : 421391               
-##  Mean   : 520367               
-##  3rd Qu.: 724151               
-##  Max.   :1565890               
-##  Å‚Ä…czne roczne natÄ™Å¼enie poÅ‚owÃ³w w regionie [uÅ‚amek pozostawionego narybku]
-##  Min.   :0.06833                                                           
-##  1st Qu.:0.14809                                                           
-##  Median :0.23191                                                           
-##  Mean   :0.22981                                                           
-##  3rd Qu.:0.29803                                                           
-##  Max.   :0.39801                                                           
-##  Å‚Ä…czna liczba ryb zÅ‚owionych w ramach poÅ‚owu [liczba Å›ledzi]
-##  Min.   : 144137                                             
-##  1st Qu.: 306068                                             
-##  Median : 539558                                             
-##  Mean   : 514973                                             
-##  3rd Qu.: 730351                                             
-##  Max.   :1015595                                             
-##  temperatura przy powierzchni wody [Â°C]
-##  Min.   :12.77                         
-##  1st Qu.:13.63                         
-##  Median :13.86                         
-##  Mean   :13.87                         
-##  3rd Qu.:14.16                         
-##  Max.   :14.73                         
-##  poziom zasolenia wody [Knudsen ppt] miesiÄ…c poÅ‚owu [numer miesiÄ…ca]
-##  Min.   :35.40                       Min.   : 1.000                 
-##  1st Qu.:35.51                       1st Qu.: 5.000                 
-##  Median :35.51                       Median : 8.000                 
-##  Mean   :35.51                       Mean   : 7.258                 
-##  3rd Qu.:35.52                       3rd Qu.: 9.000                 
-##  Max.   :35.61                       Max.   :12.000                 
-##  oscylacja pÃ³Å‚nocnoatlantycka [mb]
-##  Min.   :-4.89000                 
-##  1st Qu.:-1.89000                 
-##  Median : 0.20000                 
-##  Mean   :-0.09236                 
-##  3rd Qu.: 1.63000                 
-##  Max.   : 5.08000
-```
+
+
+
+
+
+
+
+
