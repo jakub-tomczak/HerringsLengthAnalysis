@@ -15,6 +15,13 @@ output:
 
 # Raport z analizy długości śledzia oceanicznego
 
+Animacja jak i cały raport są dostępne poprzez aplikację napisaną z wykorzystaniem biblioteki `shiny`. Aby uruchomić aplikację należy, w konsoli R wpisać komendę:
+
+```
+library(shiny)
+runApp()
+```
+
 ## Cel analizy
 
 Celem analizy jest określenie jakie mogą być główne przyczyny stopniowego zmniejszania się długości śledzi oceanicznych wyławianych w Europie.

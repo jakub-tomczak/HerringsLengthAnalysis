@@ -48,10 +48,11 @@ ui <-
       fluidPage(
         fluidRow(
          column(width=3,
+                h2("Rok"),
                 sliderInput("slider", label = "", min = min(data$year), max = max(data$year), value = min(data$year) + (max(data$year) - min(data$year))/2 )
          ),
-         column(width=5,
-                p("Aktualny śledź"),
+         column(width=5, class="currentHerringRow",
+                h3("Aktualny śledź"),
                 textOutput("herringYearText"),
                 textOutput("herringSizeText"),
                 uiOutput('herringImg')
@@ -61,17 +62,28 @@ ui <-
          )
         ),
         fluidRow(
-         column(offset=3, width=5,
-                p(paste("Minimalny rozmiar, rok", min.size$year, ", rozmiar", min.size$length)),
+         column(offset=3, width=5, class="minHerringRow",
+                h3("Minimalny rozmiar"),
+                p("Rok", min.size$year),
+                p("Rozmiar", min.size$length, "cm"),
                 img(src = herringImageFile, width =  scaleHerringSizeForUI(min.size$length))
          )
         ),
         fluidRow(
-         column(offset=3, width=5,
-                p(paste("Maksymalny rozmiar, rok", max.size$year, ", rozmiar", max.size$length)),
+         column(offset=3, width=5, class="maxHerringRow",
+                h3("Maksymalny rozmiar"),
+                p("Rok", max.size$year),
+                p("Rozmiar", max.size$length, "cm"),
                 img(src = herringImageFile, width =  scaleHerringSizeForUI(max.size$length))
          )
-        )
+        ),
+        tags$head(
+          tags$style(
+            ".currentHerringRow{ background-color: #66b3ff; }
+            .minHerringRow{ background-color: #79d2a6; }
+            .maxHerringRow{ background-color: #ff9999; }"
+            )
+          )
       )
     )
   )
@@ -85,7 +97,7 @@ server <- function(input, output, session) {
     paste("Rok ", year())
   })
   output$herringSizeText <- renderText({
-    paste("Rozmiar ", round(meanByYear[year(), 2], 2))
+    paste("Rozmiar ", round(meanByYear[year(), 2], 2), "cm")
   })
   
   output$herringPlot <- renderPlot(createYearPlot(year()))
