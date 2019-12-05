@@ -39,35 +39,42 @@ getExtremeHerringSize <- function(minMaxFunction)
 min.size <- getExtremeHerringSize(min)
 max.size <- getExtremeHerringSize(max)
 
-ui <- fluidPage(
-  titlePanel("Analiza długości śledzia"),
-  fluidRow(
-    column(width = 4,
-           sliderInput("slider", label = "", min = min(data$year), max = max(data$year), value = min(data$year) + (max(data$year) - min(data$year))/2 )
+ui <-
+  navbarPage("Analiza długości śledzia",
+    tabPanel("Raport",
+      includeMarkdown("README.md")
     ),
-    column(width=4,
-           p("Aktualny śledź"),
-           textOutput("herringYearText"),
-           textOutput("herringSizeText"),
-           uiOutput('herringImg')
-    ),
-    column(width = 4,
-           plotOutput("herringPlot")
-    )
-  ),
-  fluidRow(
-    column(width=4, offset=4,
-           p(paste("Minimalny rozmiar, rok", min.size$year, ", rozmiar", min.size$length)),
-           img(src = herringImageFile, width =  scaleHerringSizeForUI(min.size$length))
-    )
-  ),
-  fluidRow(
-    column(width=4, offset=4,
-           p(paste("Maksymalny rozmiar, rok", max.size$year, ", rozmiar", max.size$length)),
-           img(src = herringImageFile, width =  scaleHerringSizeForUI(max.size$length))
+    tabPanel("Animacja długości śledzia",
+      fluidPage(
+        fluidRow(
+         column(width=3,
+                sliderInput("slider", label = "", min = min(data$year), max = max(data$year), value = min(data$year) + (max(data$year) - min(data$year))/2 )
+         ),
+         column(width=5,
+                p("Aktualny śledź"),
+                textOutput("herringYearText"),
+                textOutput("herringSizeText"),
+                uiOutput('herringImg')
+         ),
+         column(width=4,
+                plotOutput("herringPlot")
+         )
+        ),
+        fluidRow(
+         column(offset=3, width=5,
+                p(paste("Minimalny rozmiar, rok", min.size$year, ", rozmiar", min.size$length)),
+                img(src = herringImageFile, width =  scaleHerringSizeForUI(min.size$length))
+         )
+        ),
+        fluidRow(
+         column(offset=3, width=5,
+                p(paste("Maksymalny rozmiar, rok", max.size$year, ", rozmiar", max.size$length)),
+                img(src = herringImageFile, width =  scaleHerringSizeForUI(max.size$length))
+         )
+        )
+      )
     )
   )
-)
 
 server <- function(input, output, session) {
   year <- reactive(as.integer(input$slider))

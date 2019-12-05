@@ -1,9 +1,11 @@
 ---
-title: "Raport z analizy dĂ„Ä…Ă˘â‚¬ĹˇugoĂ„Ä…Ă˘â‚¬Ĺźci Ă„Ä…Ă˘â‚¬Ĺźledzia"
+title: "Raport z analizy długości śledzia oceanicznego"
 author: "Jakub Tomczak"
 date: "1 grudnia 2019"
 output:
   html_document:
+    toc: TRUE
+    toc_floating: TRUE
     df_print: paged
   pdf_document: default
   word_document: default
@@ -12,31 +14,35 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
 # Raport z analizy długości śledzia oceanicznego
 
 ## Cel analizy
+
 Celem analizy jest określenie jakie mogą być główne przyczyny stopniowego zmniejszania się długości śledzi oceanicznych wyławianych w Europie.
 
 ## Zbiór danych
+
 Na przestrzeni ostatnich lat zauważono stopniowy spadek rozmiaru śledzia oceanicznego wyławianego w Europie. Do analizy zebrano pomiary śledzi i warunków w jakich żyją z ostatnich 60 lat. Dane były pobierane z połowów komercyjnych jednostek. W ramach połowu jednej jednostki losowo wybierano od 50 do 100 sztuk trzyletnich śledzi. Zbiór danych zawiera 52582 rekordy, każdy z nich posiada 16 atrybutów:
 * indeks
-* długość złowionego śledzia [cm],
-* dostępność planktonu [zagęszczenie Calanus finmarchicus gat. 1],
-* dostępność planktonu [zagęszczenie Calanus finmarchicus gat. 2],
-* dostępność planktonu [zagęszczenie Calanus helgolandicus gat. 1],
-* dostępność planktonu [zagęszczenie Calanus helgolandicus gat. 2],
-* dostępność planktonu [zagęszczenie widłonogów gat. 1],
-* dostępność planktonu [zagęszczenie widłonogów gat. 2],
-* natężenie połowów w regionie [ułamek pozostawionego narybku],
-* roczny narybek [liczba śledzi],
-* łączne roczne natężenie połowów w regionie [ułamek pozostawionego narybku],
-* łączna liczba ryb złowionych w ramach połowu [liczba śledzi],
-* temperatura przy powierzchni wody [°C],
-* poziom zasolenia wody [Knudsen ppt],
-* miesiąc połowu [numer miesiąca],
-* oscylacja północnoatlantycka [mb]
+* `length`: długość złowionego śledzia [cm],
+* `cfin1`: dostępność planktonu [zagęszczenie Calanus finmarchicus gat. 1],
+* `cfin2`: dostępność planktonu [zagęszczenie Calanus finmarchicus gat. 2],
+* `chel1`: dostępność planktonu [zagęszczenie Calanus helgolandicus gat. 1],
+* `chel2`: dostępność planktonu [zagęszczenie Calanus helgolandicus gat. 2],
+* `lcop1`: dostępność planktonu [zagęszczenie widłonogów gat. 1],
+* `lcop2`: dostępność planktonu [zagęszczenie widłonogów gat. 2],
+* `fbar`: natężenie połowów w regionie [ułamek pozostawionego narybku],
+* `recr`: roczny narybek [liczba śledzi],
+* `cumf`: łączne roczne natężenie połowów w regionie [ułamek pozostawionego narybku],
+* `totaln`: łączna liczba ryb złowionych w ramach połowu [liczba śledzi],
+* `sst`: temperatura przy powierzchni wody [°C],
+* `sal`: poziom zasolenia wody [Knudsen ppt],
+* `xmonth`: miesiąc połowu [numer miesiąca],
+* `nao`: oscylacja północnoatlantycka [mb]
 
 Brakujące dane zostały oznaczone jako `?` w oryginalnym zbiorze danych.
+
 ```{r load, cache=FALSE, echo=FALSE}
 source("src/functions.R")
 ```
@@ -51,6 +57,7 @@ library(dplyr)
 ## Ładowanie danych
 
 Dane zostały załadowane z podaniem typów kolumn oraz wskazaniem, że brakujące dane są oznaczone przez `?`.
+
 ```{r loadData, cache=FALSE}
 loadData <- function(filename)
 {
@@ -61,9 +68,9 @@ loadData <- function(filename)
            na.strings = "?",
            colClasses = c("integer", "numeric", "numeric", "numeric", 
                           "numeric", "numeric", "numeric", 
-                          "numeric", "numeric", "integer", 
+                          "numeric", "numeric", "factor", 
                           "numeric", "numeric", "numeric", 
-                          "numeric", "factor", "numeric"))
+                          "numeric", "numeric", "numeric"))
 }
 herringsFilename <- 'files/herrings.csv'
 rawData <- loadData(herringsFilename)
@@ -155,6 +162,7 @@ herringsData <- transformData(rawData)
 ## Podsumowanie zbioru danych
 
 Rozmiar zbioru i jego atrybuty zostały opisane powyżej, w celu podsumowania zbioru danych możemy posłużyć się następującą funkcją:
+
 ```{r summary}
 dataSummary <- function(data)
 {
@@ -174,11 +182,13 @@ dataSummary <- function(data)
 
 dataSummary(herringsData)
 ```
+
 Na podstawie podsumowania wartości atrybutów widać, iż w roku, w którym zebrano dane najwięcej śledzi zostało wyłowionych w okresie od lipca do października, przy czym szczyt nastąpił w sierpniu. Długość śledzi waha się między 19, a 32.5 centrymetra, aczkolwiek większość śledzi ma rozmiar od 24 do 26.5 centymetrów, co jest widoczne na powyższym wykresie. Widzimy również, że rozkład długości śledzia w każdym miesiącu jest podobny i przypomina rozkład normalny.
 
 ## Analiza wartości atrybutów
 
 Najbardziej oczywistymi wykresami są te ilustrujące zmiany rozmiaru śledzia w czasie. Biorąc pod uwagę wszystkie rekordy, bez podziału na lata, otrzymujemy następujący wykres:
+
 ```{r lengthPlotAll}
 variablesAnalysis.lengthAll <- function(data)
 {
@@ -194,12 +204,13 @@ variablesAnalysis.lengthAll(herringsData)
 
 Jak widać na powyższym wykresie rzeczywiście nastąpił spadek średniej długości śledzia w ostanich latach, jednakże widzimy mały wzrost na końcu.
 Biorąc pod uwagę agregację długości śledzia, poprzez wartość średnią w każdym roku, przy założeniu, że dane są uporządkowane chronologicznie oraz, że mamy doczynienia z 60 latami możemy zaobserwować trochę inny kształt wykresu:
+
 ```{r lengthPlotYear}
 
 variablesAnalysis.lengthByYear <- function(data, x, y)
 {
   meanByYear <- data %>% group_by(year) %>% summarise_at(vars(length), list(mean, sd))
-  ggplot(meanByYear, aes(x=mean, y=fn1)) +
+  ggplot(meanByYear, aes(x=year, y=fn1)) +
     geom_line(linetype = "dashed") +
     geom_pointrange(aes(min=fn1-fn2, max=fn1+fn2), color="darkseagreen3") +
     geom_point()  +
@@ -211,12 +222,15 @@ variablesAnalysis.lengthByYear <- function(data, x, y)
 
 variablesAnalysis.lengthByYear(herringsData)
 ```
-A następnie wykres agregujący długości śledzia, poprzez wartość średnią w każdym roku, bazując na atrybucie `recr`:
+
+Po agrefacji danych widzimy, iż zmiana jest o wiele bardziej widoczna. W tym przypadku atrybut rok jest generowany biorąc pod uwagę, iż jeden rok to kolejne prawie 900 rekordów (w ten sposób otrzymamy 60 lat dla całego zbioru).
+Patrząc na wykres agregujący długości śledzia, poprzez wartość średnią w każdym roku, bazując na atrybucie `recr`:
+
 ```{r lengthPlotYear_}
 variablesAnalysis.lengthByYear_ <- function(data)
 {
-  meanByYear <- data %>% group_by(year) %>% summarise_at(vars(length), list(mean, sd))
-  ggplot(meanByYear, aes(x=year, y=fn1)) +
+  meanByYear <- data %>% group_by(year_) %>% summarise_at(vars(length), list(mean, sd))
+  ggplot(meanByYear, aes(x=year_, y=fn1)) +
     geom_line(linetype = "dashed") +
     geom_pointrange(aes(min=fn1-fn2, max=fn1+fn2), color="darkseagreen3") +
     geom_point()  +
@@ -227,3 +241,57 @@ variablesAnalysis.lengthByYear_ <- function(data)
 }
 variablesAnalysis.lengthByYear_(herringsData)
 ```
+
+widzimy iż jest on bardziej podobny do pierwszego wykresu.
+
+## Analiza korelacji między zmiennymi
+
+Do stworzenia macierzy korelacji między zmiennymi wykorzystano następujący kod:
+
+```{r correlationMatrix}
+
+getUpperMatrix <- function(matrix){
+  matrix[lower.tri(matrix)] <- NA
+  matrix
+}
+
+reorderCorrmat <- function(corrmat){
+  # Use correlation between variables as distance
+  dd <- as.dist((1-corrmat)/2)
+  hc <- hclust(dd)
+  corrmat <- corrmat[hc$order, hc$order]
+}
+
+variableAnalysis.correlation <- function(data)
+{
+  columnsForCorrelation <- c("length", "cfin1",  "cfin2",  "chel1",  "chel2",
+                         "lcop1",  "lcop2",  "fbar", "cumf",
+                         "sst", "sal", "xmonth", "nao")
+  
+  corrmat <- round(cor(data[columnsForCorrelation]), 2)
+  
+  # reorder corrmat to find some hidden patterns
+  # use hclust for hierarchical clustering order
+  corrmat <- reorderCorrmat(corrmat)
+  
+  upperCorrmat <- getUpperMatrix(corrmat)
+  melted_cormat <- melt(upperCorrmat, na.rm = TRUE)
+  
+  ggplot(data = melted_cormat, aes(Var2, Var1, fill = value))+
+    geom_tile(color = "white")+
+    scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                         midpoint = 0, limit = c(-1,1), space = "Lab", 
+                         name="Korelacja\nPearsona") +
+    theme_minimal()+ 
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+                                     size = 12, hjust = 1)) +
+    coord_fixed() +
+    labs(title = "Macierz korelacji zmiennych",
+         x="", y="") +
+    geom_text(aes(Var2, Var1, label = value), color = "black", size = 3)
+}
+
+variableAnalysis.correlation(herringsData)
+```
+
+Funkcja `variableAnalysis.correlation` oblicza korelacje między zmiennymi, omijając dodane atrybuty `year` oraz `year_` oraz te, które znajdują się oryginalnie w zbiorze ale są związane wielkością połowu - `recr`:  roczny narybek, `totaln`:  łączna liczba ryb złowionych w ramach połowu. Pozostawiono atrybuty związane z natężeniami połowów jako, iż liczba połowów może negatywnie wpływać na możliwości rozmnażania śledzia. Jednkaże, patrząc na korelacje między atrybutami `fbar`, `cumf` a `length` nie widać żadnych korelacji, stąd wniosek, iż natężenie połowów nie wpływa na wielkość śledzia. Nieznaczą korelację ujemną można zauważyć między atrybutem `sst` (temperatura przy powierzchni wody), a długością śledzia. 
