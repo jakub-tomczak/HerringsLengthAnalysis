@@ -192,13 +192,14 @@ variablesAnalysis.lengthAll <- function(data)
 variablesAnalysis.lengthAll(herringsData)
 ```
 
-Biorąc pod uwagę agregację długości śledzia, poprzez wartość średnią w każdym roku, przy założeniu, że dane są uporządkowane chronologicznie oraz, że mamy doczynienia z 60 latami:
+Jak widać na powyższym wykresie rzeczywiście nastąpił spadek średniej długości śledzia w ostanich latach, jednakże widzimy mały wzrost na końcu.
+Biorąc pod uwagę agregację długości śledzia, poprzez wartość średnią w każdym roku, przy założeniu, że dane są uporządkowane chronologicznie oraz, że mamy doczynienia z 60 latami możemy zaobserwować trochę inny kształt wykresu:
 ```{r lengthPlotYear}
 
-variablesAnalysis.lengthByYear <- function(data)
+variablesAnalysis.lengthByYear <- function(data, x, y)
 {
   meanByYear <- data %>% group_by(year) %>% summarise_at(vars(length), list(mean, sd))
-  ggplot(meanByYear, aes(x=year, y=fn1)) +
+  ggplot(meanByYear, aes(x=mean, y=fn1)) +
     geom_line(linetype = "dashed") +
     geom_pointrange(aes(min=fn1-fn2, max=fn1+fn2), color="darkseagreen3") +
     geom_point()  +
