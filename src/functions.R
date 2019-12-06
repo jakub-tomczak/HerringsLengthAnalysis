@@ -68,17 +68,22 @@ transformData <- function(rawData)
     data[is.na(data[[col]]), col] <- mean(data[[col]], na.rm = TRUE)
   }
   
+  data
+}
+
+addYearsColumns <- function(data)
+{
   # add column with year (based on years' estimation)
   numberOfYears <- 60
   numberOfHerringsInOneYear <- nrow(data) %/% (numberOfYears-1)
-  data <- data %>%
+  dataWithYears <- data %>%
     mutate(year = 1:n() %/% numberOfHerringsInOneYear + 1)
   
   # add column with year (based on recr)
   years_distinct <- getYearsDistinct(data)
-  data <- mutate(data, year_=assignYear(recr, years_distinct))
+  dataWithYears <- mutate(dataWithYears, year_=assignYear(recr, years_distinct))
   
-  data
+  dataWithYears
 }
 
 getYearsDistinct <- function(data)
@@ -205,9 +210,6 @@ variableAnalysis.getTooCorrelatedColumns <- function(data, cutoff = .75)
 {
   corrmat <- variableAnalysis.calculateCorrelation(data)
   highlyCorrelated <- findCorrelation(corrmat, cutoff=cutoff)
-  
-  print(paste("highly correlated attributes indices", highlyCorrelated, sep = ' '))
-  print(columnsForCorrelation[highlyCorrelated])
   columnsForCorrelation[highlyCorrelated]
 }
 
@@ -236,5 +238,111 @@ variableAnalysis.drawDifferentCharts <- function(data)
   })
   plot_grid(
     plotlist = list
+  )
+}
+
+variableAnalysis.removeColumns <- function(data, columnsToRemove)
+{
+  select(data,-columnsToRemove)
+}
+
+predictions.prepareData <- function(data)
+{
+  set.seed(13)
+  trainTestSeries <- createDataPartition(data$length, p=0.7, list=FALSE)
+  training <- data[trainTestSeries,]
+  testing <- data[-trainTestSeries,]
+  
+  print("Zbiór treningowy")
+  print(dim(training))
+  
+  print("Zbiór testowy")
+  print(dim(testing))
+  
+  print(class(training))
+  x.train = training[, -training$length]
+  y.train = training$length
+  x.test = testing[, -testing$length]
+  y.test = testing$length
+  
+  list(x.train = x.train,
+       y.train = y.train,
+       x.test = x.test,
+       y.test = y.test)
+}
+
+predictions.trainControl <- function(data)
+{
+  trainControl(method="cv",
+               number=5,
+               repeats=2,
+               allowParallel = TRUE,
+               verboseIter = TRUE)
+}
+
+predictions.knn <- function(predictionData)
+{
+  knnGrid <- expand.grid(k = seq(1, 31, by = 2)) 
+  knnModel <- train(
+    predictionData$x.train[1000:2000, ], predictionData$y.train[1000:2000],
+    method = "knn",
+    trControl = predictions.trainControl(),
+    tuneGrid = knnGrid,
+    preProcess = c("center", "scale"),
+    verbose=TRUE
+  )
+}
+
+predictions.linearSVM <- function(predictionData)
+{
+  naiveBayesModel <- train(
+    predictionData$x.train[1000:2000, ], predictionData$y.train[1000:2000],
+    method = "svmLinear",
+    trControl = predictions.trainControl(),
+    verbose=TRUE
+  )
+}
+
+predictions.randomForest <- function(predictionData)
+{
+  randomForestModel <- train(
+    predictionData$x.train[1000:2000, ], predictionData$y.train[1000:2000],
+    method = "ranger",
+    trControl = predictions.trainControl(),
+    verbose=TRUE
+  )
+}
+
+predictions.xGradientBoosting <- function(predictionData)
+{
+  extremeGradientBoostingGrid <- expand.grid(
+    nrounds = c(100,200), 
+    max_depth = c(10, 15, 20, 25),
+    colsample_bytree = seq(0.5, 0.9, length.out = 5),
+    eta = 0.1,
+    gamma=0,
+    min_child_weight = 1,
+    subsample = 1
+  )
+  extremeGradientBoostingModel <- train(
+    predictionData$x.train[1000:2000, ], predictionData$y.train[1000:2000],
+    trControl = predictions.trainControl(),
+    tuneGrid = extremeGradientBoostingGrid,
+    method = "xgbTree"
+  )
+}
+
+
+predictions.neuralNetwork <- function(predictionData)
+{
+  neuralNetworkGrid <- expand.grid(
+    size = c(32, 64, 32)
+  )
+  neuralNetworkModel <- train(
+    predictionData$x.train[1000:2000, ], predictionData$y.train[1000:2000],
+    method = "pcaNNet",
+    trControl = predictions.trainControl(),
+    tuneGrid = neuralNetworkGrid,
+    verbose=TRUE
   )
 }
