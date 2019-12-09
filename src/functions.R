@@ -2,6 +2,7 @@ library(ggplot2)
 library(reshape2)
 library(caret)
 library(dplyr)
+library(cowplot)
 
 columnsForCorrelation <- c("length", "cfin1",  "cfin2",  "chel1",  "chel2",
                            "lcop1",  "lcop2",  "fbar", "cumf",
@@ -216,14 +217,18 @@ variableAnalysis.getTooCorrelatedColumns <- function(data, cutoff = .75)
 featureSelection.rankImportance <- function(data)
 {
   control <- trainControl(method="repeatedcv", number=1, repeats=1, allowParallel = TRUE)
-  model <- train(length ~ .,  data=data)
-  importance <- varImp(model, scale=FALSE)
-  print(importance)
-  plot(importance)
+  #model <- train(length ~ .,  data=data)
+  #importance <- varImp(model, scale=FALSE)
+  #print(importance)
+  #plot(importance)
   
 }
 
-variableAnalysis.drawNumericChart <- function(data, colName, yDesc) {
+variableAnalysis.drawNumericChart <- function(data, colName, yDesc=NULL) {
+  yDesc <- if(is.null(yDesc))
+            colName
+          else
+            yDesc
   ggplot(data, aes(x = length, y = data[[colName]], color=xmonth)) +
     geom_jitter(size = 1.5, stat = "identity") +
     labs(x = "Długość", y = yDesc, color='Miesiąc') + 
@@ -232,13 +237,33 @@ variableAnalysis.drawNumericChart <- function(data, colName, yDesc) {
 
 variableAnalysis.drawDifferentCharts <- function(data)
 {
-  attributes <- c('chel1', 'fbar', 'sst', 'nao')
-  list <- lapply(attributes, function(x){
-    variableAnalysis.drawNumericChart(data, x, getDescriptionFromColumnLabel(x))
+  attributes <- c('lcop1', 'fbar', 'sst', 'nao')
+  plots <- lapply(attributes, function(x){
+    if(!is.null(data[[x]]))
+      variableAnalysis.drawNumericChart(data, x)
   })
-  plot_grid(
-    plotlist = list
-  )
+  plot_grid(plotlist=plots)
+}
+
+variableAnalysis.drawHistograms <- function(data)
+{
+  plots <- lapply(colnames(data), function(col)
+  {
+    if(is.factor(data[[col]]))
+    {
+      ggplot(data, aes(x=data[[col]])) + 
+        geom_histogram(stat="count") +
+        labs(title=col, x="wartości")  
+    }
+    else
+    {
+      ggplot(data, aes(x=data[[col]])) + 
+        geom_histogram() +
+        labs(title=col, x="wartości", y="rozkład wartości")
+    }
+  })
+  
+  plot_grid(plotlist=plots)
 }
 
 variableAnalysis.removeColumns <- function(data, columnsToRemove)
@@ -271,45 +296,97 @@ predictions.prepareData <- function(data)
        y.test = y.test)
 }
 
-predictions.trainControl <- function(data)
+predictions.prepareData <- function(data)
+{
+  set.seed(13)
+  trainTestSeries <- createDataPartition(data$length, p=0.7, list=FALSE)
+  training <- data[trainTestSeries,]
+  testing <- data[-trainTestSeries,]
+  
+  print("Zbiór treningowy")
+  print(dim(training))
+  
+  print("Zbiór testowy")
+  print(dim(testing))
+  
+  list(train = training,
+       test = testing)
+}
+
+
+predictions.trainControl <- function(number = 10)
 {
   trainControl(method="cv",
-               number=5,
-               repeats=2,
+               number=number,
                allowParallel = TRUE,
-               verboseIter = TRUE)
+               verboseIter = FALSE)
+}
+
+predictions.lm <- function(predictionData)
+{
+  lmModel <- train(
+    length~.,
+    data=predictionData$train[1:1000,],
+    method="lm"
+  )
+}
+
+predictions.lasso <- function(predictionData)
+{
+  lmModel <- train(
+    length~.,
+    data=predictionData$train[1:1000,],
+    method="lasso"
+  )
+}
+
+predictions.ridge <- function(predictionData)
+{
+  ridgeGrid <- expand.grid(lambda=.96) 
+  lmModel <- train(
+    length~.,
+    data=predictionData$train[1:1000,],
+    method="ridge",
+    tuneGrid = ridgeGrid
+  )
 }
 
 predictions.knn <- function(predictionData)
 {
-  knnGrid <- expand.grid(k = seq(1, 31, by = 2)) 
+  knnGrid <- expand.grid(k = seq(1, 10, by = 2)) 
   knnModel <- train(
-    predictionData$x.train[1000:2000, ], predictionData$y.train[1000:2000],
+    length~.,
+    #data=predictionData$train,
+    data=predictionData$train[1:1000,],
     method = "knn",
     trControl = predictions.trainControl(),
     tuneGrid = knnGrid,
     preProcess = c("center", "scale"),
-    verbose=TRUE
+    verbose=FALSE
   )
 }
 
 predictions.linearSVM <- function(predictionData)
 {
   naiveBayesModel <- train(
-    predictionData$x.train[1000:2000, ], predictionData$y.train[1000:2000],
+    length~.,
+    # data=predictionData$train,
+    data=predictionData$train[1:1000,],
     method = "svmLinear",
     trControl = predictions.trainControl(),
-    verbose=TRUE
+    verbose=FALSE
   )
 }
 
 predictions.randomForest <- function(predictionData)
 {
   randomForestModel <- train(
-    predictionData$x.train[1000:2000, ], predictionData$y.train[1000:2000],
+    length~.,
+    # data=predictionData$train,
+    data=predictionData$train[1:1000,],
     method = "ranger",
     trControl = predictions.trainControl(),
-    verbose=TRUE
+    verbose=FALSE
   )
 }
 
@@ -325,7 +402,9 @@ predictions.xGradientBoosting <- function(predictionData)
     subsample = 1
   )
   extremeGradientBoostingModel <- train(
-    predictionData$x.train[1000:2000, ], predictionData$y.train[1000:2000],
+    length~.,
+    # data=predictionData$train,
+    data=predictionData$train[1:1000,],
     trControl = predictions.trainControl(),
     tuneGrid = extremeGradientBoostingGrid,
     method = "xgbTree"
@@ -336,13 +415,86 @@ predictions.xGradientBoosting <- function(predictionData)
 predictions.neuralNetwork <- function(predictionData)
 {
   neuralNetworkGrid <- expand.grid(
-    size = c(32, 64, 32)
+    size = c(11, 16, 32, 64, 32),
+    decay=.95
   )
   neuralNetworkModel <- train(
-    predictionData$x.train[1000:2000, ], predictionData$y.train[1000:2000],
+    length~.,
+    # data=predictionData$train,
+    data=predictionData$train[1:1000,],
     method = "pcaNNet",
     trControl = predictions.trainControl(),
     tuneGrid = neuralNetworkGrid,
-    verbose=TRUE
+    verbose=FALSE
   )
+}
+
+predictions.getStats <- function(predictions, predictionData)
+{
+  y <- predictions
+  y_true <- select(predictionData$test, length)
+  y_mean <- mean(y_true$length)
+  residuals <- (y_true - y)
+  
+  rmse <- sqrt(mean(residuals$length**2))
+  ss.tot <- sum((y_true$length - y_mean)**2)
+  ss.res <- sum(residuals**2)
+  r.squared <- 1 - ss.res / ss.tot
+  
+  list(rmse = rmse,
+       r.squared = r.squared)
+}
+
+predictions.predictionChart <- function(predictions, model.name, predictionData) {
+  x <- select(predictionData$test, -c(length))
+  results <- predictionData$test %>%
+    select(length) %>%
+    rename(y_true = length)
+  results$y_predicted <- predictions
+  # Plot predictions vs test data
+  ggplot(results, aes(y = y_true, x = y_predicted)) +
+    geom_point(color = "darkred", alpha = 0.5) + 
+    geom_smooth(method=lm) +
+    labs(title = paste("model", model.name),
+         x="Rzeczywista długość", y="Przewidziana długość")
+}
+
+predictions.importanceCharts <- function(method)
+{
+  ggplot(varImp(method$model)) +
+    labs(title=method$name, x="Ważność atrybutu", y="Atrybut")
+}
+
+predictions.plotPredictedValues <- function(method, predictionData)
+{
+  data <- data.frame(select(predictionData$test, length), predictions = method$predictions)
+  ggplot(data, aes(y = length, x = predictions)) +
+    geom_point(color = "darkgreen", alpha = 0.5) + 
+    geom_smooth(method=lm) +
+    labs(title = paste("model", method$name),
+         x="Rzeczywista długość", y="Przewidziana długość")
+}
+
+predictions.getPredictions <- function(model, predictionData)
+{
+  y_true <- select(predictionData$test, length)
+  predict(model, select(predictionData$test, -c(length)))
+}
+
+predictions.runMethods <- function(methods, predictionData)
+{
+  methodsWithPredictions <- lapply(methods, function(method)
+  {
+    model <- method$fun(predictionData)
+    predictions <- predictions.getPredictions(model, predictionData)
+    importances <- varImp(model, scale=FALSE)
+    list(
+      name = method$name,
+      model = model,
+      predictions = predictions,
+      stats = predictions.getStats(predictions, predictionData),
+      importances = importances
+    )
+  })
+  methodsWithPredictions
 }
