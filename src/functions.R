@@ -118,8 +118,7 @@ dataSummary <- function(data)
 {
   print("Dimensions of dataset:")
   print(dim(data))
-  
-  summary(data)
+  print(summary(data))
   
   ggplot(data, aes(x=length, color = factor(xmonth))) +
     geom_density() +
@@ -128,6 +127,7 @@ dataSummary <- function(data)
          x="Długość śledzia",
          y="Gęstość rozkładu",
          colour = "Miesiąc")
+  
 }
 
 variablesAnalysis.lengthByYear_ <- function(data)
@@ -168,12 +168,11 @@ variablesAnalysis.lengthAll <- function(data)
 
 variablesAnalysis.lengthByYearVsVariable <- function(data, variable.name)
 {
-  print(dim(data))
   ggplot(data,  aes(x=data[[variable.name]], y=length)) +
     geom_point() +
     geom_smooth(method='lm') +
     labs(title=paste("Analiza zmiennej", variable.name, "względem długości śledzia"),
-         x = variable.name,
+         x = getDescriptionFromColumnLabel(variable.name),
          y = "Długość śledzia [cm]")
 }
 
@@ -301,33 +300,14 @@ variableAnalysis.removeColumns <- function(data, columnsToRemove)
   select(data,-columnsToRemove)
 }
 
-predictions.prepareData <- function(data)
+animation.run <- function()
 {
-  trainTestSeries <- createDataPartition(data$length, p=0.7, list=FALSE)
-  training <- data[trainTestSeries,]
-  testing <- data[-trainTestSeries,]
-  
-  print("Zbiór treningowy")
-  print(dim(training))
-  
-  print("Zbiór testowy")
-  print(dim(testing))
-  
-  print(class(training))
-  x.train = training[, -training$length]
-  y.train = training$length
-  x.test = testing[, -testing$length]
-  y.test = testing$length
-  
-  list(x.train = x.train,
-       y.train = y.train,
-       x.test = x.test,
-       y.test = y.test)
+  library(shiny)
+  runApp()
 }
 
 predictions.prepareData <- function(data)
 {
-  set.seed(13)
   trainTestSeries <- createDataPartition(data$length, p=0.7, list=FALSE)
   training <- data[trainTestSeries,]
   testing <- data[-trainTestSeries,]
@@ -343,7 +323,7 @@ predictions.prepareData <- function(data)
 }
 
 
-predictions.trainControl <- function(number = 3)
+predictions.trainControl <- function(number = 10)
 {
   trainControl(method="cv",
                number=number,
@@ -377,15 +357,13 @@ predictions.lasso <- function(predictionData)
 
 predictions.ridge <- function(predictionData)
 {
-  ridgeGrid <- expand.grid(lambda=.96) 
-  lmModel <- train(
+  ridgeModel <- train(
     length~.,
     data=predictionData$train,
     # data=predictionData$train[1:1000,],
     preProcess = c('scale', 'center'),
     trControl = predictions.trainControl(),
-    method="ridge",
-    tuneGrid = ridgeGrid
+    method="ridge"
   )
 }
 
@@ -400,32 +378,6 @@ predictions.knn <- function(predictionData)
     trControl = predictions.trainControl(),
     tuneGrid = knnGrid,
     preProcess = c("center", "scale"),
-    verbose=FALSE
-  )
-}
-
-predictions.linearSVM <- function(predictionData)
-{
-  naiveBayesModel <- train(
-    length~.,
-    data=predictionData$train,
-    #data=predictionData$train[1:1000,],
-    method = "svmLinear",
-    preProcess = c('scale', 'center'),
-    trControl = predictions.trainControl(),
-    verbose=FALSE
-  )
-}
-
-predictions.randomForest <- function(predictionData)
-{
-  randomForestModel <- train(
-    length~.,
-    data=predictionData$train,
-    #data=predictionData$train[1:1000,],
-    method = "ranger",
-    preProcess = c('scale', 'center'),
-    trControl = predictions.trainControl(),
     verbose=FALSE
   )
 }
@@ -454,9 +406,6 @@ predictions.xGradientBoosting <- function(predictionData)
 
 predictions.elasticNet <- function(predictionData)
 {
-  # elasticNetGrid <- expand.grid(
-  #   lambda=.95
-  # )
   elasticNetModel <- train(
     length~.,
     data=predictionData$train,
@@ -464,24 +413,6 @@ predictions.elasticNet <- function(predictionData)
     method = "enet",
     preProcess = c('scale', 'center'),
     trControl = predictions.trainControl(),
-    verbose=FALSE
-  )
-}
-
-predictions.neuralNetwork <- function(predictionData)
-{
-  neuralNetworkGrid <- expand.grid(
-    size = c(11, 16, 32, 64, 32),
-    decay=.95
-  )
-  neuralNetworkModel <- train(
-    length~.,
-    data=predictionData$train,
-    #data=predictionData$train[1:1000,],
-    method = "nnet",
-    preProcess = c('scale', 'center'),
-    trControl = predictions.trainControl(),
-    tuneGrid = neuralNetworkGrid,
     verbose=FALSE
   )
 }
