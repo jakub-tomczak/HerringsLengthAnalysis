@@ -4,8 +4,9 @@ source("src/functions.R")
 
 herringsFilename <- 'files/herrings.csv'
 herringImageFile <-"img/herring.png"
-data <- transformData(loadData(herringsFilename))
+transformedData <- transformData(loadData(herringsFilename))
 
+data <- addYearsColumns(transformedData)
 meanByYear <- data %>% group_by(year) %>% summarise_at(vars(length), mean)
 
 scaleHerringSizeForUI <- function(size)
