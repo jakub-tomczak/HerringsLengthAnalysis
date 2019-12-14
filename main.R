@@ -3,29 +3,56 @@ source("src/functions.R")
 herringsFilename <- 'files/herrings.csv'
 rawData <- loadData(herringsFilename)
 
+####################################################
+################ data transform ####################
+####################################################
+
 herringsData <- transformData(rawData)
+
 herringsDataYears <- addYearsColumns(herringsData)
-
-dataSummary(herringsData)
-
 variablesAnalysis.lengthAll(herringsDataYears)
 variablesAnalysis.lengthByYear(herringsDataYears)
 variablesAnalysis.lengthByYear_(herringsDataYears)
 
 # convert column recr from factor to numeric values
 herringsData$recr <- as.numeric(herringsData$recr)
-# removes columns totaln and recr
+
+####################################################
+################## data summary ####################
+####################################################
+
+dataSummary(herringsData)
+
+####################################################
+############# variables analysis ###################
+####################################################
+
+variableAnalysis.drawDifferentCharts(analysedHerringsData)
+variableAnalysis.drawHistograms(analysedHerringsData)
+
+####################################################
+############### correlation analysis ###############
+####################################################
+
 variableAnalysis.drawCorrelationPlot(herringsData)
+
+columnsToRemove <- variableAnalysis.getTooCorrelatedColumns(herringsData)
+print(columnsToRemove)
+columnsToRemove <- c(columnsToRemove, "totaln")
+analysedHerringsData <- variableAnalysis.removeColumns(herringsData, columnsToRemove)
 
 importantFeatures <- featureSelection.rankImportance(predictionData$train, floor(dim(rawData)[1]*.05))
 print(importantFeatures)
 
-columnsToRemove <- variableAnalysis.getTooCorrelatedColumns(herringsData)
-print(columnsToRemove)
-analysedHerringsData <- variableAnalysis.removeColumns(herringsData, columnsToRemove)
+####################################################
+############ herrings length animation #############
+####################################################
 
-variableAnalysis.drawDifferentCharts(analysedHerringsData)
-variableAnalysis.drawHistograms(analysedHerringsData)
+animation.run()
+
+####################################################
+################# models training ##################
+####################################################
 
 predictionData <- predictions.prepareData(analysedHerringsData)
 
@@ -57,11 +84,6 @@ predictions.plotStats(stats, "RMSE", "RMSE")
 predictions.plotStats(stats, "R.Squared", "R^2")
 predictions.plotStats(stats, "Time", "Czas wykonywania [s]")
 
-# remind features selection analysis
-print(importantFeatures)
-print(names(importantFeatures$fit$coefficients[2:6]))
-# "fbar"  "sal"   "sst"   "cfin2" "recr" 
-
 ####################################################
 ### second analysis, only with chosen attributes ###
 ####################################################
@@ -90,11 +112,44 @@ predictions.plotStats(bestStats, "R.Squared", "R^2")
 predictions.plotStats(bestStats, "Time", "Czas wykonywania [s]")
 
 ####################################################
-### length by year vs attributes from xgb ##########
+### third analysis, only with feature selected   ###
+####################################################
+
+# top5 best attributes (based on all algorithms)
+# remind features selection analysis
+print(importantFeatures)
+featureSelection <- names(importantFeatures$fit$coefficients[2:6])
+print(featureSelection)
+# "fbar"  "sal"   "sst"   "cfin2" "recr" 
+
+methods <- list(
+  list(name="linear regression", fun=predictions.lm),
+  list(name="lasso",fun=predictions.lasso),
+  list(name="ridge",fun=predictions.ridge),
+  list(name="ElasticNet",fun=predictions.elasticNet),
+  list(name="extreme gradient boosting", fun = predictions.xGradientBoosting))
+
+selectedAttributes <- herringsData[, c(featureSelection, 'length')]
+selectedPredictionData <- predictions.prepareData(selectedAttributes)
+methodsWithPredictionsSelectedData <- predictions.runMethods(methods, selectedPredictionData)
+bestImportancesCharts <- lapply(methodsWithPredictionsSelectedData, function(x)
+{
+  predictions.importanceCharts(x)
+})
+plot_grid(plotlist = bestImportancesCharts)
+
+selectedAttrStats <- predictions.aggregateStats(methodsWithPredictionsSelectedData)
+predictions.plotStats(selectedAttrStats, "RMSE", "RMSE")
+predictions.plotStats(selectedAttrStats, "R.Squared", "R^2")
+predictions.plotStats(selectedAttrStats, "Time", "Czas wykonywania [s]")
+
+
+####################################################
+## length by year vs best and selected attributes ##
 ####################################################
 
 mean_by_year <- herringsDataYears %>%
-                  select(c(bestAttributes, "year")) %>%
+                  select(c(bestAttributes, "year", "cfin2")) %>%
                   group_by(year) %>%
                   summarise_all(mean)
 
@@ -103,3 +158,5 @@ variablesAnalysis.lengthByYearVsVariable(mean_by_year, "nao")
 variablesAnalysis.lengthByYearVsVariable(mean_by_year, "fbar")
 variablesAnalysis.lengthByYearVsVariable(mean_by_year, "sal")
 variablesAnalysis.lengthByYearVsVariable(mean_by_year, "cfin1")
+# cfin2 is being picked by rfe
+variablesAnalysis.lengthByYearVsVariable(mean_by_year, "cfin2")

@@ -50,13 +50,17 @@ Na przestrzeni ostatnich lat zauważono stopniowy spadek rozmiaru śledzia ocean
 
 Brakujące dane zostały oznaczone jako `?` w oryginalnym zbiorze danych.
 
+Wszystkie funkcje używane w analizie są zapiane w pliku `functions.R`, załadujmy jego zawartość:
+
 ```{r load, cache=FALSE, echo=FALSE}
-source("src/functions.R")
+source("src/functions.R", encoding = 'UTF-8')
 ```
 
 ## Wykorzystane biblioteki
-```{r, echo = TRUE, results='hide'}
+```
 library(ggplot2)
+library(reshape2)
+library(caret)
 library(dplyr)
 ```
 
@@ -85,85 +89,52 @@ rawData <- loadData(herringsFilename)
 
 ## Wstępne przetwarzanie danych
 
-Wstępne przetwarzanie danych obejmowało usunięcie pierwszego atrybutu `indeks` oraz zastąpienie danych brakujących przez średnią. 
-Dla czytelności, oryginalne nazwy zostały zastąpione ich polskimi opisami.
-
-Oprócz tych przekształceń została dodana jeszcze jedna kolumna w której zostały zapisany rok, z któego pochodzi dany rekord. Aby wyznaczyć rok wykorzystano kolumnę `recr`, która wskazuje roczny narybek. W ten sposób wytypowano 52 unikatowe rekordy (licząc unikatowe rekordy dla kolumny `cumf` również wyszły 52 wartości) za pomocą funkcji:
-
-```{r getYear}
-getYearsDistinct <- function(data)
-{
-  data %>% distinct(x=recr) %>% mutate(year=seq(1, length(x), 1))
-}
-
-assignYear <- function(recr, years)
-{
-  sapply(recr, function(x){
-    val <- years[years["x"] == levels(x)[x], "year"]
-    if(length(val) < 1)
-      0
-    else
-    {
-      val
-    }  
-  })
-}
-
-```
-
-W ten sposób dodajemy kolumnę o nazwie `year_`. Ze względu na fakt, iż dane miały być zapisane chronologicznie (co jest mało prawdopodobne patrząc na dane z kolumn `recr` oraz `cumf`) do każdego rekordu jest dodawany rok na podstawie wartości z pola `recr`. Tak wyliczony rok jest dodany jako atrybut `year`.
-
-Ostatecznie, wstępne przetwarzanie danych zostało wykonane za pomocą kodu:
+Wstępne przetwarzanie danych obejmowało usunięcie pierwszego atrybutu `indeks` oraz zastąpienie danych brakujących przez średnią (brakujące dane występowały w około 10 tys. wierszy). Wydaje się jednak, iż najlepszym sposobem na uzupełnienie danych byłoby obliczenie średniej z np. 10 poprzednich i 10 kolejnych wierszy. Taka metoda wydaje się sensowna, ponieważ dane były zapisywane chronologicznie, natomiast używanie średniej z 60 lat dla brakującej danej jest bardzo niedokładnym przybliżeniem.
 
 ```{r dataTransformation, cache=FALSE}
-transformData <- function(rawData)
-{
-  columnsToPreserve <- c("length", "cfin1",  "cfin2",  "chel1",  "chel2",
-                         "lcop1",  "lcop2",  "fbar",   "recr",   "cumf",
-                         "totaln", "sst", "sal", "xmonth", "nao")
-  data <- rawData[columnsToPreserve]
-  
-  polishColumnsNames <- c("długość śledzia [cm]",
-                          "dostępność planktonu [Calanus finmarchicus gat. 1]",
-                          "dostępność planktonu [Calanus finmarchicus gat. 2]",
-                          "dostępność planktonu [Calanus helgolandicus gat. 1]",
-                          "dostępność planktonu [Calanus helgolandicus gat. 2]",
-                          "dostępność planktonu [widłonogi gat. 1]",
-                          "dostępność planktonu [widłonogi gat. 2]",
-                          "natężenie połowów w regionie [ułamek pozostawionego narybku]",
-                          "roczny narybek [liczba śledzi]",
-                          "łączne roczne natężenie połowów w regionie [ułamek pozostawionego narybku]",
-                          "łączna liczba ryb złowionych w ramach połowu [liczba śledzi]",
-                          "temperatura przy powierzchni wody [°C]",
-                          "poziom zasolenia wody [Knudsen ppt]",
-                          "miesiąc połowu [numer miesiąca]",
-                          "oscylacja północnoatlantycka [mb]")
-  
-  # names(data) <- polishColumnsNames
-  
-  for(col in names(data))
-  {
-    if(!any(is.na(data[[col]])))
-    {
-      # skip columns without NA
-      next
-    }
-    data[is.na(data[[col]]), col] <- mean(data[[col]], na.rm = TRUE)
-  }
-  
-  # add column with year (based on years' estimation)
-  numberOfYears <- 60
-  numberOfHerringsInOneYear <- nrow(data) %/% (numberOfYears-1)
-  data <- data %>%
-    mutate(year = 1:n() %/% numberOfHerringsInOneYear + 1)
-  
-  # add column with year (based on recr)
-  years_distinct <- getYearsDistinct(data)
-  data <- mutate(data, year_=assignYear(recr, years_distinct))
-  
-  data
-}
 herringsData <- transformData(rawData)
+```
+
+Oprócz tych przekształceń została dodana jeszcze jedna kolumna w której zostały zapisany rok, z któego pochodzi dany rekord.
+Patrząc na atrybut `recr` wraz z atrybutem `cumf` widać, iż dla wierszy, które mają taką samą wartość `recr` mamy takie same wartości `cumf`. To dosyć logiczne, ponieważ oba atrybuty agregują wartości dla całego roku, stąd pytanie ile jest takich unikatowych wartości:
+
+```{r}
+length(unique(rawData$recr))
+```
+```{r}
+length(unique(rawData$cumf))
+```
+
+Patrząc na te wyniki można by przypuszczać, iż dane nie są z 60 lat a z 52 lat. Jednkaże, unikatowe wartości dla danego roku sa porozdzielane innymi wartościami/innymi latami, co zaprzecza założeniu o chronologii danych.
+Dlatego też, aby wyznaczyć rok wykorzystano kolumnę `recr`, która wskazuje roczny narybek.
+
+```
+years_distinct <- getYearsDistinct(data)
+dataWithYears <- mutate(dataWithYears, year_=assignYear(recr, years_distinct))
+```
+
+W ten sposób dodajemy kolumnę o nazwie `year_`.
+
+Ostatecznie, aby utrzymać założenie o chronologiczności danych, założono, że lat jest 60 i podzielono je na równe 60, następujących po sobie częsci. W ten sposób otrzymano około 876 rekordów na rok.
+
+```
+numberOfYears <- 60
+numberOfHerringsInOneYear <- nrow(data) %/% (numberOfYears-1)
+dataWithYears <- data %>%
+  mutate(year = 1:n() %/% numberOfHerringsInOneYear + 1)
+```
+
+(Ostatnie dwa snippety znajdują się w funkcji `addYearsColumns`)
+Jednakże, powyższe operacje nie są wykonywane razem ze wstępnym przetwarzaniem danych, ich wyniki są zapisywane do innej zmiennej, tak by dodane kolumny nie uczwstniczyły w treningu modeli.
+
+```{r}
+herringsDataYears <- addYearsColumns(herringsData)
+```
+
+Atrybut `recr` podczas ładowania był traktowany jako wartość typu `factor`, dla łatwości analizy lat, jednakże przekonwertujemy go teraz do typu numeric, żeby uniknąć problemów przy predykcji.
+
+```{r}
+herringsData$recr <- as.numeric(herringsData$recr)
 ```
 
 ## Podsumowanie zbioru danych
@@ -171,22 +142,6 @@ herringsData <- transformData(rawData)
 Rozmiar zbioru i jego atrybuty zostały opisane powyżej, w celu podsumowania zbioru danych możemy posłużyć się następującą funkcją:
 
 ```{r summary}
-dataSummary <- function(data)
-{
-  print("Dimensions of dataset:")
-  print(dim(data))
-  
-  summary(data)
-  
-  ggplot(herringsData, aes(x=length, color = factor(xmonth))) +
-    geom_density() +
-    scale_x_continuous(breaks = seq(min(herringsData$length), max(herringsData$length), 1)) +
-    labs(title="Rozkład długości śledzia w zależności od miesiąca",
-         x="Długość śledzia",
-         y="Gęstość rozkładu",
-         colour = "Miesiąc")
-}
-
 dataSummary(herringsData)
 ```
 
@@ -197,15 +152,7 @@ Na podstawie podsumowania wartości atrybutów widać, iż w roku, w którym zeb
 Najbardziej oczywistymi wykresami są te ilustrujące zmiany rozmiaru śledzia w czasie. Biorąc pod uwagę wszystkie rekordy, bez podziału na lata, otrzymujemy następujący wykres:
 
 ```{r lengthPlotAll}
-variablesAnalysis.lengthAll <- function(data)
-{
-  ggplot(data, aes(x=seq(1, nrow(data)), y=length)) +
-    geom_line(color="darkseagreen3")  +
-    labs(title="Długość śledzia",
-         subtitle="Bez agregacji, wszystkie dane.",
-         x="Nr śledzia",
-         y="Długość śledzia [cm]")
-}
+
 variablesAnalysis.lengthAll(herringsData)
 ```
 
@@ -214,91 +161,278 @@ Biorąc pod uwagę agregację długości śledzia, poprzez wartość średnią w
 
 ```{r lengthPlotYear}
 
-variablesAnalysis.lengthByYear <- function(data, x, y)
-{
-  meanByYear <- data %>% group_by(year) %>% summarise_at(vars(length), list(mean, sd))
-  ggplot(meanByYear, aes(x=year, y=fn1)) +
-    geom_line(linetype = "dashed") +
-    geom_pointrange(aes(min=fn1-fn2, max=fn1+fn2), color="darkseagreen3") +
-    geom_point()  +
-    labs(title="Rozkład długości śledzia w zależności od roku",
-         subtitle = "Agregacja na podstawie założenia o chronologii danych.",
-         x="Rok",
-         y="Długość śledzia [cm]")
-}
-
-variablesAnalysis.lengthByYear(herringsData)
+variablesAnalysis.lengthByYear(herringsDataYears)
 ```
 
 Po agrefacji danych widzimy, iż zmiana jest o wiele bardziej widoczna. W tym przypadku atrybut rok jest generowany biorąc pod uwagę, iż jeden rok to kolejne prawie 900 rekordów (w ten sposób otrzymamy 60 lat dla całego zbioru).
 Patrząc na wykres agregujący długości śledzia, poprzez wartość średnią w każdym roku, bazując na atrybucie `recr`:
 
 ```{r lengthPlotYear_}
-variablesAnalysis.lengthByYear_ <- function(data)
-{
-  meanByYear <- data %>% group_by(year_) %>% summarise_at(vars(length), list(mean, sd))
-  ggplot(meanByYear, aes(x=year_, y=fn1)) +
-    geom_line(linetype = "dashed") +
-    geom_pointrange(aes(min=fn1-fn2, max=fn1+fn2), color="darkseagreen3") +
-    geom_point()  +
-    labs(title="Rozkład długości śledzia w zależności od roku",
-         subtitle = "Agregacja na podstawie atrybutu `recr`",
-         x="Rok",
-         y="Długość śledzia [cm]")
-}
-variablesAnalysis.lengthByYear_(herringsData)
+
+variablesAnalysis.lengthByYear_(herringsDataYears)
 ```
 
-widzimy iż jest on bardziej podobny do pierwszego wykresu.
+widzimy iż jest on bardziej podobny do pierwszego wykresu. Ostatnia agregacja, na podstawie parametru `recr`, została wykonana ponieważ nie wyglądają na zbierane chronologicznie. 
+
+Poniżej możemy zaobserwować rozkład danych w poszczególych atrybutach, które zostaną użyte do predykcji:
+
+```{r histograms}
+
+variableAnalysis.drawHistograms(analysedHerringsData)
+```
+
+Atrybut `length` już analizowaliśmy, widzimy, iż rozkłady w atrybutach `cfin1`, `cfin2`, `lcop1` są mocno przekrzywione, przypominając trochę rozkład gamma. W przypadku atrybutu `xmonth` mamy wyraźne wskazanie na miesiące letnie co jest związane z samym procesem wyławiania, jeżeli chodzi o atrybut `recr` to widać, iż mniej więcej wyławiono podobne liczby śledzi w różnych latach, tylko w przypadku 2 lat nastąpiła duża zmiana.
+
 
 ## Analiza korelacji między zmiennymi
 
-Do stworzenia macierzy korelacji między zmiennymi wykorzystano następujący kod:
-
-```{r correlationMatrix}
-
-getUpperMatrix <- function(matrix){
-  matrix[lower.tri(matrix)] <- NA
-  matrix
-}
-
-reorderCorrmat <- function(corrmat){
-  # Use correlation between variables as distance
-  dd <- as.dist((1-corrmat)/2)
-  hc <- hclust(dd)
-  corrmat <- corrmat[hc$order, hc$order]
-}
-
-variableAnalysis.correlation <- function(data)
-{
-  columnsForCorrelation <- c("length", "cfin1",  "cfin2",  "chel1",  "chel2",
+Korelację wykonano dla następujących zmiennych:
+```{r}
+columnsForCorrelation <- c("length", "cfin1",  "cfin2",  "chel1",  "chel2",
                          "lcop1",  "lcop2",  "fbar", "cumf",
                          "sst", "sal", "xmonth", "nao")
-  
-  corrmat <- round(cor(data[columnsForCorrelation]), 2)
-  
-  # reorder corrmat to find some hidden patterns
-  # use hclust for hierarchical clustering order
-  corrmat <- reorderCorrmat(corrmat)
-  
-  upperCorrmat <- getUpperMatrix(corrmat)
-  melted_cormat <- melt(upperCorrmat, na.rm = TRUE)
-  
-  ggplot(data = melted_cormat, aes(Var2, Var1, fill = value))+
-    geom_tile(color = "white")+
-    scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
-                         midpoint = 0, limit = c(-1,1), space = "Lab", 
-                         name="Korelacja\nPearsona") +
-    theme_minimal()+ 
-    theme(axis.text.x = element_text(angle = 45, vjust = 1, 
-                                     size = 12, hjust = 1)) +
-    coord_fixed() +
-    labs(title = "Macierz korelacji zmiennych",
-         x="", y="") +
-    geom_text(aes(Var2, Var1, label = value), color = "black", size = 3)
-}
-
-variableAnalysis.correlation(herringsData)
 ```
 
-Funkcja `variableAnalysis.correlation` oblicza korelacje między zmiennymi, omijając dodane atrybuty `year` oraz `year_` oraz te, które znajdują się oryginalnie w zbiorze ale są związane wielkością połowu - `recr`:  roczny narybek, `totaln`:  łączna liczba ryb złowionych w ramach połowu. Pozostawiono atrybuty związane z natężeniami połowów jako, iż liczba połowów może negatywnie wpływać na możliwości rozmnażania śledzia. Jednkaże, patrząc na korelacje między atrybutami `fbar`, `cumf` a `length` nie widać żadnych korelacji, stąd wniosek, iż natężenie połowów nie wpływa na wielkość śledzia. Nieznaczą korelację ujemną można zauważyć między atrybutem `sst` (temperatura przy powierzchni wody), a długością śledzia. 
+Oprócz dolnotrójkątnej macierzy korelacji
+
+```{r correlationMatrix}
+variableAnalysis.drawCorrelationPlot(herringsData)
+```
+
+Funkcja `variableAnalysis.drawCorrelationPlot` oblicza korelacje między zmiennymi, omijając dodane atrybuty `year` oraz `year_` oraz te, które znajdują się oryginalnie w zbiorze ale są związane wielkością połowu - `recr`:  roczny narybek, `totaln`:  łączna liczba ryb złowionych w ramach połowu. Pozostawiono atrybuty związane z natężeniami połowów jako, iż liczba połowów może negatywnie wpływać na możliwości rozmnażania śledzia. Jednkaże, patrząc na korelacje między atrybutami `fbar`, `cumf` a `length` nie widać żadnych korelacji, stąd możnaby wnioskować, iż natężenie połowów nie wpływa na wielkość śledzia. Nieznaczą korelację ujemną można zauważyć między atrybutem `sst` (temperatura przy powierzchni wody), a długością śledzia. 
+
+Oprócz wyznaczenia macierzy korelacji, wyznaczono te atrybuty, które można usunąć ze względu na zbyt dużą korelację z innymi, są to atrybuty:
+
+```{r removeCorrelatedAttr}
+columnsToRemove <- variableAnalysis.getTooCorrelatedColumns(herringsData)
+print(columnsToRemove)
+```
+
+i te atrybuty, wraz z `totaln` usunięto ze zbioru.
+
+```{r}
+columnsToRemove <- c(columnsToRemove, "totaln")
+analysedHerringsData <- variableAnalysis.removeColumns(herringsData, columnsToRemove)
+```
+
+`totaln` został usunięty ze względu na fakt, iż liczba śledzi w danym połowie nie powinna decydować o średniej długości śledzia w danym roku.
+Dodatkowo wykonano wstępną selekcję atrybutów za pomocą metody `Recursive Feature Elimination`, która wytypowała następujące 5 najważniejszych atrybutów:
+
+```{r}
+importantFeatures <- featureSelection.rankImportance(predictionData$train, floor(dim(rawData)[1]*.05))
+print(importantFeatures)
+```
+
+Selekcja odbyła się na 5% wszystkich przykładów zbioru treningowego. Na razie nie korzystamy z atrybutów wytypowanych przez tę metodę.
+
+## Prezentacja zmiany rozmiaru śledzi w czasie
+
+Jak wyjaśniono na początku, prezentacja została przedstawiona w aplikacji z użyciem biblioteki `shiny`.
+Po załadowaniu zawartości pliku `functions.R`, mając plik `app.R` w ścieżce wskazywanej przez `getwd()` wystarczy wywołać funkcję
+
+```
+animation.run()
+```
+
+## Regresor przewidujący rozmiar śledzia
+
+Dane podzielono na zbiór treningowy orazy testowy w relacji 7:3 za pomocą funkcji `createDataPartition` .
+
+```{r partitionData}
+predictionData <- predictions.prepareData(analysedHerringsData)
+```
+
+Do predykcji długości śledzia zostały wykorzystane następujące metody:
+ * regresji liniowej
+ * lasso
+ * ridge
+ * ElasticNet
+ * KNN
+ * Extreme Gradient Boosting
+ 
+ ```{r predictionMethod}
+ methods <- list(
+  list(name="linear regression", fun=predictions.lm),
+  list(name="lasso",fun=predictions.lasso),
+  list(name="ridge",fun=predictions.ridge),
+  list(name="ElasticNet",fun=predictions.elasticNet),
+  list(name="knn",fun=predictions.knn),
+  list(name="extreme gradient boosting", fun = predictions.xGradientBoosting))
+ ```
+ 
+Aby uspójnić uczenie modeli wykorzystano interfejs oferowany przez bibliotekę `caret`. W treningu każdej z metod wykorzystano 10-krotną walidację krzyżową na danych treningowych. Dodatkowo zastosowano preprocessing danych w postaci skalowania i centrowania danych. Każdy z modeli może mieć swoje parametry. Do regresji liniowej oraz metody `lasso`, `ridge` i `ElasticNet`  nie zostały dodane żadne. W przypadku `KNN` parametr `k` został dobrany na wartość 3 (były testowane wartości 3, 5, 7, 9 jednakże nie było między nimi dużych różnic). Dla metody `Extreme gradient boosting`, która miała najwięcej parametrów do ustawienia wybrano, następujące parametry:
+ * nrounds = c(100) (testowane były wartości 100 oraz 200, różnice nie były duże),
+ * max_depth = c(25) (testowane były wartości 10, 15, 20 oraz 25 dla której otrzymano najlepszy wynik),
+ * colsample_bytree = c(.9) (testowane były wartości .5, .6, .7, .8 oraz .9 dla której otrzymano najlepszy wynik),
+ * eta = 0.1,
+ * gamma=0,
+ * min_child_weight = 1,
+ * subsample = 1.
+
+Po treningu na wszystkich metodach z wykorzystaniem danych treningowych
+
+```{r training}
+methodsWithPredictions <- predictions.runMethods(methods, predictionData)
+```
+
+wykonano zbiorczy wykres, na którym widać relacje między rzeczywistymi, a przewidywanymi długościami śledzi dla każdej z metod:
+
+```{r predictionsVsReality}
+predictionCharts <- lapply(methodsWithPredictions, function(x)
+{
+  predictions.predictionChart(x$predictions, x$name, predictionData) 
+})
+plot_grid(plotlist = predictionCharts)
+```
+
+aby lepiej zobrazować dokładność predykcji obliczono wartości RMSE oraz R^2 dla każdej z metod (dodatkowo został wzięty pod uwagę czas treningu w sekundach):
+
+```{r RMSEandRSquared1}
+stats <- predictions.aggregateStats(methodsWithPredictions)
+kable(stats, format="markdown")
+```
+
+które można porówanać na poniższych wykresach:
+
+```{r RMSE1}
+predictions.plotStats(stats, "RMSE", "RMSE")
+```
+
+Widzimy, iż najlepszą wartośc otrzymały algorytmy `KNN` oraz `Extreme Gradient Boosting`, pierwsze cztery metody regresji otrzymały podobne miary RMSE. Odpowiednio układa się ranking w przypadku miary `R^2`:
+
+```{r RSquared1}
+predictions.plotStats(stats, "R.Squared", "R^2")
+```
+
+Aby wybrać najlepszy można dodac trzeci parametr, czas, który dla wszystkich algorytmów wyglądał następująco:
+
+```{r timing1}
+predictions.plotStats(stats, "Time", "Czas wykonywania [s]")
+```
+
+Stąd można stwierdzić, iż `KNN` jest w tym przypadku najlepszym wyborem. 
+Patrząc na ważności atrybutów
+
+```{r}
+importancesCharts <- lapply(methodsWithPredictions, function(x)
+{
+  predictions.importanceCharts(x)
+})
+plot_grid(plotlist = importancesCharts)
+```
+
+możemy wytypować listę 5-ciu najważniejszych:
+
+```{r bestAttributes}
+bestAttributes <- c("sst", "nao", "fbar", "sal", "cfin1", "length")
+```
+
+## Analiza ważności atrybutów najlepszego znalezionego modelu regresji
+
+W tej części przedstawimy zależności wytypowanych atrybutów (`sst`, `nao`, `fbar`, `sal`, `cfin1`) względem długości śledzia.
+Analiza jest wykonana na danych zagregowanych na podstawie atrybutu `year`
+
+```{r}
+mean_by_year <- herringsDataYears %>%
+                  select(c(bestAttributes, "year")) %>%
+                  group_by(year) %>%
+                  summarise_all(mean)
+```
+
+Bezsprzecznie, najważniejszym atrybutem jest `sst`, czyli temperatura przy powierzchni wody, im jest ona mniejsza tym większa jest długość śledzia. Poniższe wykresy, są zagregowanymi wartościami na podstawie atrybutu `year`:
+
+```{r}
+variablesAnalysis.lengthByYearVsVariable(mean_by_year, "sst")
+```
+
+Kolejną zmienną jest `nao`, czyli oscylacja północnoatlantycka, która jest również odwrotnie proporcjonalna do długości śledzia
+```{r}
+variablesAnalysis.lengthByYearVsVariable(mean_by_year, "nao")
+```
+
+Ważną rolę odgrywa również ułamek pozostawionego narybku, im więcej pozostawionych ryb, tym dłuższych śledzi możemy się spodziewać
+co jest dosyć ważnym wskażnikiem, ponieważ jest to wartość bezpośrednio kontrolowana przez człowieka.
+
+```{r}
+variablesAnalysis.lengthByYearVsVariable(mean_by_year, "fbar")
+```
+
+Na koniec analiza dwóch parametrów, które nie wykazują klarownych relacji z długością śledzia, jednakże były ważne przy treningu modeli. Jeżeli chodzi o atrybut `sal`, odpowiadającą zasoleniu wody relacja wygląda następująco:
+
+```{r}
+variablesAnalysis.lengthByYearVsVariable(mean_by_year, "sal")
+```
+
+Natomiast jeżeli chodzi o atrybut `cfin1` to mamy następujący wykres
+
+```{r}
+variablesAnalysis.lengthByYearVsVariable(mean_by_year, "cfin1")
+```
+
+## Uczenie modelu na podzbiorze 5-ciu najważniejszych atrybutów
+
+Teraz wykorzystamy tylko te 5 atrybutów (oraz szósty decyzyjny) do predykcji długości śledzia, aby sprawdzić, czy rzeczywiście wystarczą one do dobrej predykcji:
+
+```{r}
+methods <- list(
+  list(name="linear regression", fun=predictions.lm),
+  list(name="lasso",fun=predictions.lasso),
+  list(name="ridge",fun=predictions.ridge),
+  list(name="ElasticNet",fun=predictions.elasticNet),
+  list(name="extreme gradient boosting", fun = predictions.xGradientBoosting))
+
+bestAttributesData <- herringsData[, bestAttributes]
+bestPredictionData <- predictions.prepareData(bestAttributesData)
+methodsWithPredictionsBestData <- predictions.runMethods(methods, bestPredictionData)
+
+bestStats <- predictions.aggregateStats(methodsWithPredictionsBestData)
+```
+
+W tym przypadku nie wykorzystaliśmy metody `KNN` ze względu na dziwny błąd, który wynika ze zbyt małej liczby wykorzystanych atrybutów.
+Analizując wyniki miar `RMSE`
+
+```{r}
+predictions.plotStats(bestStats, "RMSE", "RMSE")
+```
+
+oraz `R^2` 
+
+```{r}
+predictions.plotStats(bestStats, "R.Squared", "R^2")
+```
+
+Widzimy, iż jakość predykcji nie zmieniła się w znaczącym stopniu, natomiast czasy treningu dosyć mocno się obniżyły
+
+```{r}
+predictions.plotStats(bestStats, "Time", "Czas wykonywania [s]")
+```
+
+Stąd wniosek, iż pozostałe atrybuty w rzeczywistości w bardzo małym stopniu wpływają na wyniki predykcji, a 5 najważniejszych atrybutów wytypowanych podczas uczenia poprzednich modeli wystarczy. Jedyną wadą jest fakt, iż najpierw musimy nauczyc te modele, aby wiedzieć jaki podzbiór atrybutów jest najważniejszy.
+
+Wykonajmy taką samą analizę używając tym razem atrybutów wyłonionych za pomocą wcześniej wspomnianego algorymtu `Recursive Feature Elimination`, która działa bardzo szybko a do jej wykonania użyto jedynie 5% przykładów ze zbioru uczącego, tj. około 1840 przykładów.
+
+```{r}
+print(importantFeatures)
+featureSelection <- names(importantFeatures$fit$coefficients[2:6])
+print(featureSelection)
+
+
+methods <- list(
+  list(name="linear regression", fun=predictions.lm),
+  list(name="lasso",fun=predictions.lasso),
+  list(name="ridge",fun=predictions.ridge),
+  list(name="ElasticNet",fun=predictions.elasticNet),
+  list(name="extreme gradient boosting", fun = predictions.xGradientBoosting))
+
+selectedAttributes <- herringsData[, c(featureSelection, 'length')]
+selectedPredictionData <- predictions.prepareData(selectedAttributes)
+methodsWithPredictionsSelectedData <- predictions.runMethods(methods, selectedPredictionData)
+
+selectedAttrStats <- predictions.aggregateStats(methodsWithPredictionsSelectedData)
+predictions.plotStats(selectedAttrStats, "RMSE", "RMSE")
+predictions.plotStats(selectedAttrStats, "R.Squared", "R^2")
+predictions.plotStats(selectedAttrStats, "Time", "Czas wykonywania [s]")
+```
+
+Jak widać, wyniki `RMSE` oraz `R^2` są takie same, dla metody `Extreme Gradient Boosting` jak w przypadku poprzedniego podzbioru 5 atrybutów. Biorąc pod uwagę, iż taki podzbiór daje takie same wyniki jak poprzedni podzbiór ale nie wymaga uruchamiania modeli na wszystkich danych, wydaje się, iż użycie w tym przypadku selekcji atrybutów jest najlepszym i najszybszym rozwiązaniem problemu predykcji długości śledzia.
+
