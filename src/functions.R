@@ -4,6 +4,8 @@ library(caret)
 library(dplyr)
 library(cowplot)
 
+set.seed(131)
+
 columnsForCorrelation <- c("length", "cfin1",  "cfin2",  "chel1",  "chel2",
                            "lcop1",  "lcop2",  "fbar", "cumf",
                            "sst", "sal", "xmonth", "nao")
@@ -164,6 +166,17 @@ variablesAnalysis.lengthAll <- function(data)
          y="Długość śledzia [cm]")
 }
 
+variablesAnalysis.lengthByYearVsVariable <- function(data, variable.name)
+{
+  print(dim(data))
+  ggplot(data,  aes(x=data[[variable.name]], y=length)) +
+    geom_point() +
+    geom_smooth(method='lm') +
+    labs(title=paste("Analiza zmiennej", variable.name, "względem długości śledzia"),
+         x = variable.name,
+         y = "Długość śledzia [cm]")
+}
+
 getUpperMatrix <- function(matrix){
   matrix[lower.tri(matrix)] <- NA
   matrix
@@ -214,14 +227,31 @@ variableAnalysis.getTooCorrelatedColumns <- function(data, cutoff = .75)
   columnsForCorrelation[highlyCorrelated]
 }
 
-featureSelection.rankImportance <- function(data)
+
+featureSelection.rankImportance <- function(data, number.of.samples=500)
 {
-  control <- trainControl(method="repeatedcv", number=1, repeats=1, allowParallel = TRUE)
-  #model <- train(length ~ .,  data=data)
-  #importance <- varImp(model, scale=FALSE)
-  #print(importance)
-  #plot(importance)
+  # wybór atrybutów za pomocą recursive forward elimination - metoda typu wrapper
+  # wykorzystująca regresję liniową w celu znalezienia podzbioru atrybutów, które
+  # są najważniejsze podczas predykcji wartości atrybutu decyzyjnego
+  ctrl <- rfeControl(functions = lmFuncs,
+                     method = "repeatedcv",
+                     repeats = 3,
+                     verbose = FALSE)
   
+  subsets <- seq(1, dim(data)[2], by = 1)
+  subsets <- c(1:5)
+  
+  num_of_samples <- number.of.samples
+  x <- select(data[1:num_of_samples, ], -c(length))
+  x$recr <- as.numeric(x$recr)
+  x <- as.matrix(x)
+  y <- data$length[1:num_of_samples]
+  
+  lmProfile <- rfe(x, y,
+                   sizes = subsets,
+                   rfeControl = ctrl)
+  
+  lmProfile
 }
 
 variableAnalysis.drawNumericChart <- function(data, colName, yDesc=NULL) {
@@ -231,7 +261,7 @@ variableAnalysis.drawNumericChart <- function(data, colName, yDesc=NULL) {
             yDesc
   ggplot(data, aes(x = length, y = data[[colName]], color=xmonth)) +
     geom_jitter(size = 1.5, stat = "identity") +
-    labs(x = "Długość", y = yDesc, color='Miesiąc') + 
+    labs(x = "Długość [cm]", y = yDesc, color='Miesiąc') + 
     theme_bw()
 }
 
@@ -273,7 +303,6 @@ variableAnalysis.removeColumns <- function(data, columnsToRemove)
 
 predictions.prepareData <- function(data)
 {
-  set.seed(13)
   trainTestSeries <- createDataPartition(data$length, p=0.7, list=FALSE)
   training <- data[trainTestSeries,]
   testing <- data[-trainTestSeries,]
@@ -314,7 +343,7 @@ predictions.prepareData <- function(data)
 }
 
 
-predictions.trainControl <- function(number = 10)
+predictions.trainControl <- function(number = 3)
 {
   trainControl(method="cv",
                number=number,
@@ -326,16 +355,22 @@ predictions.lm <- function(predictionData)
 {
   lmModel <- train(
     length~.,
-    data=predictionData$train[1:1000,],
+    data=predictionData$train,
+    # data=predictionData$train[1:1000,],
+    preProcess = c('scale', 'center'),
+    trControl = predictions.trainControl(),
     method="lm"
   )
 }
 
 predictions.lasso <- function(predictionData)
 {
-  lmModel <- train(
+  lassoModel <- train(
     length~.,
-    data=predictionData$train[1:1000,],
+    data=predictionData$train,
+    # data=predictionData$train[1:1000,],
+    preProcess = c('scale', 'center'),
+    trControl = predictions.trainControl(),
     method="lasso"
   )
 }
@@ -345,7 +380,10 @@ predictions.ridge <- function(predictionData)
   ridgeGrid <- expand.grid(lambda=.96) 
   lmModel <- train(
     length~.,
-    data=predictionData$train[1:1000,],
+    data=predictionData$train,
+    # data=predictionData$train[1:1000,],
+    preProcess = c('scale', 'center'),
+    trControl = predictions.trainControl(),
     method="ridge",
     tuneGrid = ridgeGrid
   )
@@ -353,11 +391,11 @@ predictions.ridge <- function(predictionData)
 
 predictions.knn <- function(predictionData)
 {
-  knnGrid <- expand.grid(k = seq(1, 10, by = 2)) 
+  knnGrid <- expand.grid(k = 5) # = seq(3, 10, by = 2)) 
   knnModel <- train(
     length~.,
-    #data=predictionData$train,
-    data=predictionData$train[1:1000,],
+    data=predictionData$train,
+    #data=predictionData$train[1:1000,],
     method = "knn",
     trControl = predictions.trainControl(),
     tuneGrid = knnGrid,
@@ -370,9 +408,10 @@ predictions.linearSVM <- function(predictionData)
 {
   naiveBayesModel <- train(
     length~.,
-    # data=predictionData$train,
-    data=predictionData$train[1:1000,],
+    data=predictionData$train,
+    #data=predictionData$train[1:1000,],
     method = "svmLinear",
+    preProcess = c('scale', 'center'),
     trControl = predictions.trainControl(),
     verbose=FALSE
   )
@@ -382,9 +421,10 @@ predictions.randomForest <- function(predictionData)
 {
   randomForestModel <- train(
     length~.,
-    # data=predictionData$train,
-    data=predictionData$train[1:1000,],
+    data=predictionData$train,
+    #data=predictionData$train[1:1000,],
     method = "ranger",
+    preProcess = c('scale', 'center'),
     trControl = predictions.trainControl(),
     verbose=FALSE
   )
@@ -393,9 +433,9 @@ predictions.randomForest <- function(predictionData)
 predictions.xGradientBoosting <- function(predictionData)
 {
   extremeGradientBoostingGrid <- expand.grid(
-    nrounds = c(100,200), 
-    max_depth = c(10, 15, 20, 25),
-    colsample_bytree = seq(0.5, 0.9, length.out = 5),
+    nrounds = c(100), # c(100,200), 
+    max_depth = c(25), # c(10, 15, 20, 25),
+    colsample_bytree = c(.9), # seq(0.5, 0.9, length.out = 5),
     eta = 0.1,
     gamma=0,
     min_child_weight = 1,
@@ -403,14 +443,30 @@ predictions.xGradientBoosting <- function(predictionData)
   )
   extremeGradientBoostingModel <- train(
     length~.,
-    # data=predictionData$train,
-    data=predictionData$train[1:1000,],
+    data=predictionData$train,
+    #data=predictionData$train[1:1000,],
     trControl = predictions.trainControl(),
     tuneGrid = extremeGradientBoostingGrid,
+    preProcess = c('scale', 'center'),
     method = "xgbTree"
   )
 }
 
+predictions.elasticNet <- function(predictionData)
+{
+  # elasticNetGrid <- expand.grid(
+  #   lambda=.95
+  # )
+  elasticNetModel <- train(
+    length~.,
+    data=predictionData$train,
+    #data=predictionData$train[1:1000,],
+    method = "enet",
+    preProcess = c('scale', 'center'),
+    trControl = predictions.trainControl(),
+    verbose=FALSE
+  )
+}
 
 predictions.neuralNetwork <- function(predictionData)
 {
@@ -420,9 +476,10 @@ predictions.neuralNetwork <- function(predictionData)
   )
   neuralNetworkModel <- train(
     length~.,
-    # data=predictionData$train,
-    data=predictionData$train[1:1000,],
-    method = "pcaNNet",
+    data=predictionData$train,
+    #data=predictionData$train[1:1000,],
+    method = "nnet",
+    preProcess = c('scale', 'center'),
     trControl = predictions.trainControl(),
     tuneGrid = neuralNetworkGrid,
     verbose=FALSE
@@ -456,12 +513,12 @@ predictions.predictionChart <- function(predictions, model.name, predictionData)
     geom_point(color = "darkred", alpha = 0.5) + 
     geom_smooth(method=lm) +
     labs(title = paste("model", model.name),
-         x="Rzeczywista długość", y="Przewidziana długość")
+         x="Rzeczywista długość [cm]", y="Przewidziana długość [cm]")
 }
 
 predictions.importanceCharts <- function(method)
 {
-  ggplot(varImp(method$model)) +
+  ggplot(method$importances) +
     labs(title=method$name, x="Ważność atrybutu", y="Atrybut")
 }
 
@@ -472,29 +529,68 @@ predictions.plotPredictedValues <- function(method, predictionData)
     geom_point(color = "darkgreen", alpha = 0.5) + 
     geom_smooth(method=lm) +
     labs(title = paste("model", method$name),
-         x="Rzeczywista długość", y="Przewidziana długość")
+         x="Rzeczywista długość [cm]", y="Przewidziana długość [cm]")
 }
 
 predictions.getPredictions <- function(model, predictionData)
 {
-  y_true <- select(predictionData$test, length)
   predict(model, select(predictionData$test, -c(length)))
+}
+
+predictions.runMethod <- function(method, predictionData)
+{
+  print(paste("running", method$name))
+  start.time <- Sys.time()
+  
+  model <- method$fun(predictionData)
+  predictions <- predictions.getPredictions(model, predictionData)
+  importances <- varImp(model, scale=FALSE)
+  
+  end.time <- Sys.time()
+  time.taken <- as.numeric(end.time - start.time, units="secs")
+  print(paste("time elapsed", time.taken, "secs"))
+  
+  stats <- predictions.getStats(predictions, predictionData)
+  stats$time = time.taken
+  list(
+    name = method$name,
+    model = model,
+    predictions = predictions,
+    stats = stats,
+    importances = importances
+  )
 }
 
 predictions.runMethods <- function(methods, predictionData)
 {
-  methodsWithPredictions <- lapply(methods, function(method)
-  {
-    model <- method$fun(predictionData)
-    predictions <- predictions.getPredictions(model, predictionData)
-    importances <- varImp(model, scale=FALSE)
-    list(
-      name = method$name,
-      model = model,
-      predictions = predictions,
-      stats = predictions.getStats(predictions, predictionData),
-      importances = importances
-    )
-  })
+  methodsWithPredictions <- lapply(methods, function(method){ predictions.runMethod(method, predictionData) })
   methodsWithPredictions
+}
+
+predictions.aggregateStats <- function(methods)
+{
+  stats <- lapply(methods, function(x){ x$stats })
+  row.names <- sapply(methods, function(x) { x$name })
+  combineStats <- data.frame(matrix(unlist(stats), ncol=3, byrow = T),
+                             row.names = row.names) %>%
+    rename(RMSE = X1, R.Squared = X2, Time = X3)
+}
+
+predictions.plotStats <- function(stats, kind, description)
+{
+  if(kind %in% c("RMSE", "R.Squared", "Time"))
+  {
+    row.names <- rownames(stats)
+    ggplot(stats) +
+      geom_col(aes(x=row.names, y=stats[[kind]])) +
+      coord_cartesian(ylim = c(min(stats[[kind]])-.1, max(stats[[kind]])+.1)) +
+      labs(title=paste(description, "dla każdego z algorytmów"),
+           y=description,
+           x="Algorytm") +
+      geom_label(aes(x=row.names, y=stats[[kind]], label=round(stats[[kind]], 2)))
+  }
+  else
+  {
+    print("wrong type")
+  }
 }
